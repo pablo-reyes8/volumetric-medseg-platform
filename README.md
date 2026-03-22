@@ -9,290 +9,34 @@
 ![Forks](https://img.shields.io/github/forks/pablo-reyes8/unet3d-medseg?style=social)
 ![Stars](https://img.shields.io/github/stars/pablo-reyes8/unet3d-medseg?style=social)
 
-Portfolio-ready stack for 3D medical image segmentation with a UNet3D backbone. This repository goes beyond a training notebook: it packages the model as a usable product with a versioned FastAPI service, a Streamlit review console, test coverage, Dockerized services, CLI entrypoints, explicit DataOps contracts, and MLOps operating policies for reproducible local workflows.
+Production-minded 3D medical image segmentation built around a PyTorch UNet3D. This repository is not just a training script: it includes a FastAPI inference service, a Streamlit review console, Dockerized local deployment, test coverage, explicit DataOps contracts, and MLOps hooks for tracking, monitoring, drift checks, retraining and rollback decisions.
 
-## Why This Project Is Strong
-- **Real volumetric segmentation**: 3D UNet trained for medical volumes in NIfTI format, not 2D toy data.
-- **Inference pipeline that looks like production**: schema-driven FastAPI endpoints, health probes, model metadata, and reload support.
-- **Human-in-the-loop UI**: Streamlit app for remote or local inference, overlay inspection, histogram review, and mask download.
-- **Operational baseline in place**: dedicated Docker images, `docker-compose.yml`, environment-driven configuration, and a `tests/` suite.
-- **Data is treated as a product**: root-level `data/` package, source metadata, quality gates, contracts, manifests and dataset registry.
-- **MLOps is explicit**: MLflow hooks, deployment drift checks, retraining policies, rollback logic and runtime monitoring for serving.
-- **Clear extensibility path**: model card in `model.yaml`, CLI scripts in `scripts/`, and a clean separation between `training`, `api`, `data`, and `mlops`.
+## Quick Navigation
+- [Visual Results](#visual-results)
+- [Project Snapshot](#project-snapshot)
+- [Quickstart](#quickstart)
+- [API Surface](#api-surface)
+- [Data and MLOps](#data-and-mlops)
+- [Repository Structure](#repository-structure)
 
-## Architecture
-```
-Input volume (.nii/.nii.gz)
-        |
-        v
-  Preprocessing
-  - percentile clipping
-  - min-max normalization
-  - padding to multiples of 16
-        |
-        v
-     UNet3D
-        |
-        v
-  Predicted mask
-  - JSON metadata via FastAPI
-  - NIfTI download via FastAPI
-  - visual QA via Streamlit
-```
+## Project Snapshot
+- **Model**: `UNet3D` for volumetric medical segmentation.
+- **Framework**: `PyTorch`.
+- **Data format**: `.nii` and `.nii.gz` NIfTI volumes.
+- **Serving layer**: `FastAPI` with schemas, health probes, model metadata and binary mask download.
+- **Review interface**: `Streamlit` for slice inspection, overlays, histograms and inference comparison.
+- **Ops baseline**: test suite, CLI scripts, split Docker images, environment-based configuration and runtime monitoring.
+- **Data foundation**: source metadata, contracts, manifests, registry and quality checks for the canonical dataset.
 
-## Repository Structure
-```
-├─ app/                     # Streamlit review console
-├─ data/                    # Dataset layout, manifests, registry, ingestion and preprocessing
-├─ docker/                  # Dedicated Dockerfiles for API and Streamlit
-├─ experiments/             # Qualitative and quantitative results
-├─ requirements/            # Dependency profiles: base, api, app, dev
-├─ scripts/                 # CLI helpers for API, app, tests, Docker, data and drift
-├─ src/
-│  ├─ api/                  # FastAPI app, schemas, settings, inference service
-│  ├─ mlops/                # MLflow tracking and deployment drift evaluation
-│  ├─ model/                # UNet3D architecture and blocks
-│  ├─ model_inference.py/   # Analysis and qualitative utilities
-│  └─ training/             # Training loop and metrics
-├─ tests/                   # API, data and MLOps smoke tests
-├─ docker-compose.yml       # Multi-service local stack
-├─ model.yaml               # Model card and serving metadata
-├─ requirements.txt         # Full development dependencies
-└─ Dockerfile               # Backward-compatible API image build
-```
+## Why This Repo Works As A Portfolio Project
+- It solves a real 3D medical imaging task instead of a 2D toy demo.
+- It shows the full path from training to serving to human review.
+- The API looks like a deployable product, not a notebook wrapper.
+- The data layer is explicit, versioned and contract-driven.
+- The MLOps layer already includes MLflow integration, drift analysis and operational policies.
+- The repo is easy to run locally through scripts, tests and Docker.
 
-## Model Card Snapshot
-- **Model**: `unet3d-segmentation`
-- **Framework**: PyTorch
-- **Task**: 3D medical segmentation over NIfTI volumes
-- **Input contract**: single-channel volume with percentile clipping `(1, 99)` and padding to multiples of `16`
-- **Output contract**: NIfTI mask with `3` classes by default
-- **Primary checkpoint path**: `artifacts/unet3d_best.pt`
-- **Serving metadata source**: `model.yaml`
-
-## Quickstart
-### 1. Local environment
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
-```
-
-### 2. Run the API
-```bash
-python scripts/run_api.py \
-  --reload \
-  --model-path /absolute/path/to/unet3d_best.pt
-```
-
-### 3. Run the Streamlit app
-```bash
-python scripts/run_app.py \
-  --api-url http://localhost:8000 \
-  --model-path /absolute/path/to/unet3d_best.pt
-```
-
-### 4. Run tests
-```bash
-python scripts/run_tests.py tests/data tests/mlops tests/api --verbose
-```
-
-## API Surface
-OpenAPI docs are available at `http://localhost:8000/docs` and `http://localhost:8000/redoc`.
-
-### Monitoring and platform
-- `GET /` returns service discovery info.
-- `GET /health/live` exposes liveness.
-- `GET /health/ready` exposes readiness and checkpoint/model checks.
-- `GET /api/v1/config` returns the active runtime config.
-
-### Model management
-- `GET /api/v1/model` returns model metadata derived from `model.yaml` and runtime settings.
-- `POST /api/v1/model/reload` forces a checkpoint reload without restarting the service.
-
-### Inference
-- `POST /api/v1/predictions` returns structured JSON with runtime breakdown, orientation, spacing, histogram, and threshold used.
-- `POST /api/v1/predictions/download` returns the predicted mask as `.nii.gz`.
-- `POST /v1/predict` remains available as a legacy compatibility endpoint.
-
-Example JSON inference:
-```bash
-curl -X POST "http://localhost:8000/api/v1/predictions" \
-  -H "accept: application/json" \
-  -F "file=@/path/to/volume.nii.gz"
-```
-
-Example binary download:
-```bash
-curl -X POST "http://localhost:8000/api/v1/predictions/download" \
-  -F "file=@/path/to/volume.nii.gz" \
-  -o mask.nii.gz
-```
-
-## Streamlit Review App
-The app supports two workflows:
-- **API Deployment**: checks API readiness, reads live model metadata, requests inference, and downloads the resulting mask.
-- **Local Checkpoint**: runs the same inference service locally for checkpoint validation on the same machine.
-
-Each run includes:
-- slice-by-slice inspection over any axis,
-- image/mask/overlay visualization,
-- runtime metrics and request identifiers,
-- class histograms and raw prediction metadata,
-- direct `.nii.gz` download for the predicted mask.
-
-## Docker Deployment
-This repo now ships separate images for the backend and the review UI.
-
-### Compose workflow
-```bash
-python scripts/run_docker.py build
-python scripts/run_docker.py up --detach
-```
-
-This starts:
-- `api` on `http://localhost:8000`
-- `streamlit` on `http://localhost:8501`
-
-To stop the stack:
-```bash
-python scripts/run_docker.py down
-```
-
-### Raw Docker builds
-```bash
-docker build -f docker/Dockerfile.api -t unet3d-medseg-api .
-docker build -f docker/Dockerfile.streamlit -t unet3d-medseg-streamlit .
-```
-
-## Configuration
-Environment variables use the `UNET3D_` prefix. The most relevant ones are:
-- `UNET3D_MODEL_PATH`
-- `UNET3D_DEVICE`
-- `UNET3D_DEFAULT_THRESHOLD`
-- `UNET3D_PAD_MULTIPLE`
-- `UNET3D_CLIP_PERCENTILES`
-- `UNET3D_ALLOW_ORIGINS`
-- `UNET3D_PRELOAD_MODEL`
-
-See `src/api/settings.py` for the full configuration contract.
-
-## Data and MLOps
-### Explicit dataset layout
-The project now promotes data to a first-class asset in the root `data/` package:
-- `data/raw/` for immutable source drops,
-- `data/external/` for downloaded archives,
-- `data/interim/` for temporary transformations,
-- `data/processed/` for training-ready volumes,
-- `data/manifests/` for JSON dataset manifests,
-- `data/registry/datasets.yaml` for versioned dataset registration.
-
-### DataOps for Task04 Hippocampus
-The current canonical dataset is **Medical Segmentation Decathlon Task04 Hippocampus**. The repo now includes:
-- official source metadata in `data/sources/task04_hippocampus.yaml`,
-- an explicit data contract in `data/contracts/task04_hippocampus.contract.yaml`,
-- a manifest schema in `data/contracts/dataset_manifest.schema.json`,
-- quality validation in `data/quality.py`,
-- a preparation pipeline in `data/task04.py`.
-
-The data contract makes explicit:
-- modality: `MRI`,
-- tensor image size: `3D`,
-- labels: `0=background`, `1=Anterior`, `2=Posterior`,
-- expected archive layout: `dataset.json`, `imagesTr`, `labelsTr`, `imagesTs`,
-- required quality rules before a dataset version can be registered.
-
-The DataOps stack also validates:
-- source metadata against the project contract,
-- the official `dataset.json` against `data/contracts/task04_dataset_json.schema.json`,
-- dataset manifests against `data/contracts/dataset_manifest.schema.json`,
-- the version registry against `data/contracts/dataset_registry.schema.json`.
-
-End-to-end Task04 preparation:
-```bash
-python scripts/run_task04_dataops.py \
-  --dataset-version 2026.03.21
-```
-
-This pipeline downloads the official archive, extracts the raw layout, standardizes it into `data/processed/`, validates quality, creates a manifest and updates the registry.
-
-Create and register a dataset manifest:
-```bash
-python scripts/run_data_registry.py \
-  --images-dir data/processed/task04_hippocampus/2026.03.21/imagesTr \
-  --labels-dir data/processed/task04_hippocampus/2026.03.21/labelsTr \
-  --dataset-name task04_hippocampus \
-  --version 2026.03.21 \
-  --manifest-out data/manifests/task04_hippocampus_2026.03.21.json
-```
-
-### MLflow training wrapper
-`src/mlops/mlflow_tracking.py` adds a thin wrapper around the existing PyTorch training loop instead of replacing it. The wrapper logs:
-- training params and tags,
-- per-epoch train/validation metrics,
-- best checkpoint artifacts,
-- dataset manifests,
-- `model.yaml` as training metadata,
-- packaging manifests,
-- serving and container files,
-- data contracts and source metadata so the training run is audit-ready from data version to deployment package.
-
-### Data drift for deployment
-`src/mlops/drift.py` builds a baseline profile from reference NIfTI volumes and evaluates candidate volumes using:
-- KS statistic,
-- population stability index (PSI),
-- mean/std shift,
-- average shape shift.
-
-Build a drift baseline and evaluate a candidate batch:
-```bash
-python scripts/run_drift_check.py baseline \
-  --images-dir data/processed/task04_hippocampus/2026.03.21/imagesTr \
-  --dataset-version 2026.03.21 \
-  --output-path data/manifests/task04_hippocampus_drift_baseline.json
-
-python scripts/run_drift_check.py evaluate \
-  --images-dir data/interim/deployment_batch \
-  --baseline-path data/manifests/task04_hippocampus_drift_baseline.json
-```
-
-### Retraining and rollback policies
-The project now distinguishes multiple operational triggers instead of using drift alone:
-- **Periodic retraining** when the approved cadence is exceeded.
-- **KPI-driven retraining** when production segmentation quality falls below the champion by more than the allowed drop.
-- **Drift-driven retraining** when PSI, KS or distribution shift exceed the declared baseline thresholds.
-- **Rollback** when runtime incidents such as latency or error-rate regressions cross severe thresholds.
-
-The active policy is stored in `src/mlops/policies/default_operating_policy.yaml`, and the decision logic lives in `src/mlops/retraining.py`.
-
-### Deployment monitoring
-The API runtime monitor exposes what the serving layer actually tracks:
-- request latency,
-- throughput,
-- error rate,
-- per-endpoint behavior,
-- CPU and memory usage,
-- GPU memory usage when available,
-- estimated cost per 1000 requests.
-
-Useful endpoints:
-- `GET /api/v1/monitoring/runtime`
-- `GET /api/v1/monitoring/policy`
-- `GET /api/v1/monitoring/retraining-assessment`
-
-For the operating summary, see `docs/mlops_playbook.md`.
-
-## Testing
-The `tests/` folder currently covers:
-- settings validation,
-- dataset pairing, loading and manifest versioning,
-- dataset quality contracts and Task04 source metadata,
-- MLflow tracking hooks, retraining policy logic and deployment drift evaluation,
-- inference-service metadata and padding behavior,
-- FastAPI routes for health, metadata, reload, prediction, and file validation.
-
-This gives the project a real engineering baseline before moving into MLOps concerns such as CI/CD, registries, monitoring, and deployment automation.
+> Start with the outputs. The section below is intentionally near the top because the visual evidence is one of the strongest parts of the project.
 
 ## Visual Results
 
@@ -327,6 +71,242 @@ This gives the project a real engineering baseline before moving into MLOps conc
     </td>
   </tr>
 </table>
+
+## Quickstart
+### 1. Create the local environment
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### 2. Run the API
+```bash
+python scripts/run_api.py \
+  --reload \
+  --model-path /absolute/path/to/unet3d_best.pt
+```
+
+### 3. Run the Streamlit review app
+```bash
+python scripts/run_app.py \
+  --api-url http://localhost:8000 \
+  --model-path /absolute/path/to/unet3d_best.pt
+```
+
+### 4. Run the tests
+```bash
+python scripts/run_tests.py tests/data tests/mlops tests/api --verbose
+```
+
+### 5. Run the local Docker stack
+```bash
+python scripts/run_docker.py build
+python scripts/run_docker.py up --detach
+```
+
+This starts:
+- `api` on `http://localhost:8000`
+- `streamlit` on `http://localhost:8501`
+
+Stop the stack with:
+```bash
+python scripts/run_docker.py down
+```
+
+## End-to-End Workflow
+```text
+NIfTI volume
+   ->
+preprocessing
+   - percentile clipping
+   - min-max normalization
+   - padding to multiples of 16
+   ->
+UNet3D inference
+   ->
+predicted mask
+   ->
+FastAPI JSON response / NIfTI download / Streamlit visual QA
+```
+
+## API Surface
+OpenAPI docs are available at `http://localhost:8000/docs` and `http://localhost:8000/redoc`.
+
+### Platform and health
+- `GET /` returns service discovery metadata.
+- `GET /health/live` exposes liveness.
+- `GET /health/ready` validates readiness, including model/checkpoint status.
+- `GET /api/v1/config` returns the active runtime configuration.
+
+### Model management
+- `GET /api/v1/model` returns model metadata from `model.yaml` and runtime settings.
+- `POST /api/v1/model/reload` reloads the checkpoint without restarting the API.
+
+### Inference endpoints
+- `POST /api/v1/predictions` returns JSON inference metadata, runtime breakdown, spacing, orientation and histogram information.
+- `POST /api/v1/predictions/download` returns the predicted mask as `.nii.gz`.
+- `POST /v1/predict` remains available as a legacy compatibility route.
+
+Example JSON inference:
+```bash
+curl -X POST "http://localhost:8000/api/v1/predictions" \
+  -H "accept: application/json" \
+  -F "file=@/path/to/volume.nii.gz"
+```
+
+Example mask download:
+```bash
+curl -X POST "http://localhost:8000/api/v1/predictions/download" \
+  -F "file=@/path/to/volume.nii.gz" \
+  -o mask.nii.gz
+```
+
+## Streamlit Review App
+The review app supports two main workflows:
+- **API deployment mode**: calls the live FastAPI backend, checks readiness and downloads the predicted mask.
+- **Local checkpoint mode**: runs the same inference service locally for quick validation on the same machine.
+
+Each inference session includes:
+- slice-by-slice browsing on any axis,
+- image, mask and overlay visualization,
+- runtime metadata and request identifiers,
+- class histograms and prediction metadata,
+- direct `.nii.gz` download for the predicted mask.
+
+## Docker Deployment
+The repository ships separate images for the backend and the review interface.
+
+Raw image builds:
+```bash
+docker build -f docker/Dockerfile.api -t unet3d-medseg-api .
+docker build -f docker/Dockerfile.streamlit -t unet3d-medseg-streamlit .
+```
+
+## Configuration
+Environment variables use the `UNET3D_` prefix. The most relevant ones are:
+- `UNET3D_MODEL_PATH`
+- `UNET3D_DEVICE`
+- `UNET3D_DEFAULT_THRESHOLD`
+- `UNET3D_PAD_MULTIPLE`
+- `UNET3D_CLIP_PERCENTILES`
+- `UNET3D_ALLOW_ORIGINS`
+- `UNET3D_PRELOAD_MODEL`
+
+See `src/api/settings.py` for the full runtime configuration contract.
+
+## Data and MLOps
+### Data foundation
+The project treats data as a first-class asset through the root `data/` package:
+- `data/raw/` for immutable source drops.
+- `data/external/` for downloaded archives.
+- `data/interim/` for temporary or review-stage artifacts.
+- `data/processed/` for standardized training-ready volumes.
+- `data/manifests/` for JSON manifests with hashes and lineage.
+- `data/registry/datasets.yaml` for registered dataset versions.
+
+For **Medical Segmentation Decathlon Task04 Hippocampus**, the repo already includes:
+- source metadata in `data/sources/task04_hippocampus.yaml`,
+- a data contract in `data/contracts/task04_hippocampus.contract.yaml`,
+- a schema for the official `dataset.json`,
+- a schema for dataset manifests,
+- a schema for the dataset registry,
+- quality validation and version registration pipelines.
+
+Task04 preparation:
+```bash
+python scripts/run_task04_dataops.py \
+  --dataset-version 2026.03.21
+```
+
+Manual manifest registration:
+```bash
+python scripts/run_data_registry.py \
+  --images-dir data/processed/task04_hippocampus/2026.03.21/imagesTr \
+  --labels-dir data/processed/task04_hippocampus/2026.03.21/labelsTr \
+  --dataset-name task04_hippocampus \
+  --version 2026.03.21 \
+  --manifest-out data/manifests/task04_hippocampus_2026.03.21.json
+```
+
+### MLflow tracking and packaging
+`src/mlops/mlflow_tracking.py` wraps the training loop without replacing it. Each run can log:
+- hyperparameters and tags,
+- train and validation metrics per epoch,
+- best checkpoint artifacts,
+- dataset manifests,
+- `model.yaml`,
+- packaging manifests,
+- serving files and Docker packaging files,
+- data contracts and source metadata.
+
+### Drift, retraining and rollback
+The project does not reduce operations to drift alone.
+
+It already includes:
+- drift baselining and evaluation for deployment batches,
+- periodic retraining policies,
+- KPI-driven retraining decisions,
+- rollback rules for runtime regressions,
+- runtime monitoring endpoints exposed by the API.
+
+Drift baseline example:
+```bash
+python scripts/run_drift_check.py baseline \
+  --images-dir data/processed/task04_hippocampus/2026.03.21/imagesTr \
+  --dataset-version 2026.03.21 \
+  --output-path data/manifests/task04_hippocampus_drift_baseline.json
+```
+
+### Deployment monitoring
+The serving layer explicitly tracks:
+- latency,
+- throughput,
+- error rate,
+- per-endpoint behavior,
+- CPU and memory usage,
+- GPU memory usage when available,
+- estimated cost per 1000 requests.
+
+Useful monitoring endpoints:
+- `GET /api/v1/monitoring/runtime`
+- `GET /api/v1/monitoring/policy`
+- `GET /api/v1/monitoring/retraining-assessment`
+
+For the operational summary, see `docs/mlops_playbook.md`.
+
+## Repository Structure
+```text
+├─ app/                     # Streamlit review console
+├─ data/                    # Dataset layout, manifests, registry, ingestion and preprocessing
+├─ docker/                  # Dedicated Dockerfiles for API and Streamlit
+├─ experiments/             # Qualitative and quantitative results
+├─ requirements/            # Dependency profiles: base, api, app, dev
+├─ scripts/                 # CLI helpers for API, app, tests, Docker, data and drift
+├─ src/
+│  ├─ api/                  # FastAPI app, schemas, settings, inference service
+│  ├─ mlops/                # MLflow tracking and deployment drift evaluation
+│  ├─ model/                # UNet3D architecture and blocks
+│  ├─ model_inference.py/   # Analysis and qualitative utilities
+│  └─ training/             # Training loop and metrics
+├─ tests/                   # API, data and MLOps smoke tests
+├─ docker-compose.yml       # Multi-service local stack
+├─ model.yaml               # Model card and serving metadata
+├─ requirements.txt         # Full development dependencies
+└─ Dockerfile               # Backward-compatible API image build
+```
+
+## Testing
+The `tests/` suite currently covers:
+- settings validation,
+- dataset pairing, loading and manifest versioning,
+- dataset quality contracts and Task04 source metadata,
+- MLflow tracking hooks, retraining policy logic and deployment drift evaluation,
+- inference-service metadata and padding behavior,
+- FastAPI routes for health, metadata, reload, prediction and file validation.
+
+This gives the repository a solid engineering baseline before adding CI/CD, model registries, cloud deployment and full production observability.
 
 ## License
 MIT License. You are free to use, modify, and distribute with attribution and without warranty.
