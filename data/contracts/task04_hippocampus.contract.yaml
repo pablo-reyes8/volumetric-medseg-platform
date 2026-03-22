@@ -1,13 +1,16 @@
 dataset_name: task04_hippocampus
 challenge: medical_segmentation_decathlon
+source_of_truth:
+  metadata_path: data/sources/task04_hippocampus.yaml
+  dataset_json_schema: data/contracts/task04_dataset_json.schema.json
 modality:
   primary: MRI
   tensor_image_size: 3D
 task: hippocampus_segmentation
 label_schema:
   "0": background
-  "1": anterior
-  "2": posterior
+  "1": Anterior
+  "2": Posterior
 expected_structure:
   required_top_level:
     - dataset.json
@@ -27,4 +30,8 @@ quality_rules:
   - positive_voxel_spacing
 versioning:
   manifest_schema: data/contracts/dataset_manifest.schema.json
+  registry_schema: data/contracts/dataset_registry.schema.json
   registry_path: data/registry/datasets.yaml
+quality_reporting:
+  manifest_embeds_quality_report: true
+  registry_tracks_quality_status: true

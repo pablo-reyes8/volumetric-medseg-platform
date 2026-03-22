@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unet3d-medseg.local/schemas/task04-dataset-json.schema.json",
+  "title": "MSD Task04 Hippocampus dataset.json",
+  "type": "object",
+  "required": [
+    "name",
+    "description",
+    "tensorImageSize",
+    "modality",
+    "labels",
+    "numTraining",
+    "numTest"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "const": "Hippocampus"
+    },
+    "description": {
+      "type": "string"
+    },
+    "reference": {
+      "type": "string"
+    },
+    "licence": {
+      "type": "string"
+    },
+    "release": {
+      "type": "string"
+    },
+    "tensorImageSize": {
+      "type": "string",
+      "const": "3D"
+    },
+    "modality": {
+      "type": "object",
+      "required": ["0"],
+      "properties": {
+        "0": {
+          "type": "string",
+          "const": "MRI"
+        }
+      },
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "labels": {
+      "type": "object",
+      "required": ["0", "1", "2"],
+      "properties": {
+        "0": {
+          "type": "string",
+          "const": "background"
+        },
+        "1": {
+          "type": "string",
+          "const": "Anterior"
+        },
+        "2": {
+          "type": "string",
+          "const": "Posterior"
+        }
+      },
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "numTraining": {
+      "type": "integer",
+      "const": 260
+    },
+    "numTest": {
+      "type": "integer",
+      "const": 130
+    },
+    "training": {
+      "type": "array"
+    },
+    "test": {
+      "type": "array"
+    }
+  },
+  "additionalProperties": true
+}

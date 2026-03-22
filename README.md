@@ -199,9 +199,15 @@ The current canonical dataset is **Medical Segmentation Decathlon Task04 Hippoca
 The data contract makes explicit:
 - modality: `MRI`,
 - tensor image size: `3D`,
-- labels: `0=background`, `1=anterior`, `2=posterior`,
+- labels: `0=background`, `1=Anterior`, `2=Posterior`,
 - expected archive layout: `dataset.json`, `imagesTr`, `labelsTr`, `imagesTs`,
 - required quality rules before a dataset version can be registered.
+
+The DataOps stack also validates:
+- source metadata against the project contract,
+- the official `dataset.json` against `data/contracts/task04_dataset_json.schema.json`,
+- dataset manifests against `data/contracts/dataset_manifest.schema.json`,
+- the version registry against `data/contracts/dataset_registry.schema.json`.
 
 End-to-end Task04 preparation:
 ```bash
@@ -214,11 +220,11 @@ This pipeline downloads the official archive, extracts the raw layout, standardi
 Create and register a dataset manifest:
 ```bash
 python scripts/run_data_registry.py \
-  --images-dir data/processed/hippocampus/2026.03.21/imagesTr \
-  --labels-dir data/processed/hippocampus/2026.03.21/labelsTr \
-  --dataset-name hippocampus \
+  --images-dir data/processed/task04_hippocampus/2026.03.21/imagesTr \
+  --labels-dir data/processed/task04_hippocampus/2026.03.21/labelsTr \
+  --dataset-name task04_hippocampus \
   --version 2026.03.21 \
-  --manifest-out data/manifests/hippocampus_2026.03.21.json
+  --manifest-out data/manifests/task04_hippocampus_2026.03.21.json
 ```
 
 ### MLflow training wrapper
@@ -242,13 +248,13 @@ python scripts/run_data_registry.py \
 Build a drift baseline and evaluate a candidate batch:
 ```bash
 python scripts/run_drift_check.py baseline \
-  --images-dir data/processed/hippocampus/2026.03.21/imagesTr \
+  --images-dir data/processed/task04_hippocampus/2026.03.21/imagesTr \
   --dataset-version 2026.03.21 \
-  --output-path data/manifests/hippocampus_drift_baseline.json
+  --output-path data/manifests/task04_hippocampus_drift_baseline.json
 
 python scripts/run_drift_check.py evaluate \
   --images-dir data/interim/deployment_batch \
-  --baseline-path data/manifests/hippocampus_drift_baseline.json
+  --baseline-path data/manifests/task04_hippocampus_drift_baseline.json
 ```
 
 ### Retraining and rollback policies

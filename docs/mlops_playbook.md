@@ -11,6 +11,12 @@ The API runtime monitor tracks:
 - GPU memory usage when CUDA is available,
 - estimated infrastructure cost per 1000 requests.
 
+This means the serving layer is monitored across four operational planes:
+- service health: request count, endpoint behavior and error rate,
+- performance: latency percentiles and throughput,
+- infrastructure: CPU, memory and GPU usage,
+- economics: estimated cost per 1000 requests.
+
 The active operating policy lives in `src/mlops/policies/default_operating_policy.yaml`.
 
 ## Retraining Triggers
@@ -39,4 +45,4 @@ Each training run should log:
 - serving files and Docker packaging files,
 - data contracts and dataset source metadata.
 
-This makes the training run auditable from data version to deployment package.
+This makes the training run auditable from dataset version and quality state to the exact serving package that was deployed.

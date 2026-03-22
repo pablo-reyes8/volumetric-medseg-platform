@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unet3d-medseg.local/schemas/dataset-registry.schema.json",
+  "title": "UNet3D Dataset Registry",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "updated_at_utc",
+    "datasets"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "updated_at_utc": {
+      "type": ["string", "null"]
+    },
+    "datasets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "dataset_name",
+          "version",
+          "created_at_utc",
+          "total_pairs",
+          "manifest_path",
+          "images_dir",
+          "labels_dir",
+          "quality_status"
+        ],
+        "properties": {
+          "dataset_name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "created_at_utc": {
+            "type": "string"
+          },
+          "total_pairs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "manifest_path": {
+            "type": ["string", "null"]
+          },
+          "images_dir": {
+            "type": "string"
+          },
+          "labels_dir": {
+            "type": "string"
+          },
+          "quality_status": {
+            "type": "string"
+          },
+          "source_url": {
+            "type": ["string", "null"]
+          },
+          "data_contract_path": {
+            "type": ["string", "null"]
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

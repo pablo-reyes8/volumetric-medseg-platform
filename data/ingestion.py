@@ -9,6 +9,14 @@ from typing import Iterable, List, Sequence, Tuple
 VALID_NIFTI_SUFFIXES = (".nii", ".nii.gz")
 
 
+def _validate_archive_members(destination: Path, members: Sequence[str]) -> None:
+    destination_root = destination.resolve()
+    for member_name in members:
+        member_path = (destination / member_name).resolve()
+        if member_path != destination_root and destination_root not in member_path.parents:
+            raise ValueError(f"Archive member fuera del destino permitido: {member_name}")
+
+
 def strip_nii_suffix(name: str) -> str:
     if name.endswith(".nii.gz"):
         return name[:-7]
@@ -63,12 +71,14 @@ def extract_archive(archive_path: Path | str, destination: Path | str, overwrite
 
     if archive.suffix == ".zip":
         with zipfile.ZipFile(archive) as zipped:
+            _validate_archive_members(target_dir, zipped.namelist())
             zipped.extractall(target_dir)
         return target_dir
 
     suffixes = archive.suffixes
     if suffixes[-1] == ".tar" or suffixes[-2:] in [[".tar", ".gz"], [".tar", ".bz2"], [".tar", ".xz"]]:
         with tarfile.open(archive, mode="r:*") as tar_file:
+            _validate_archive_members(target_dir, [member.name for member in tar_file.getmembers()])
             tar_file.extractall(target_dir)
         return target_dir
 

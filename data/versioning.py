@@ -7,6 +7,10 @@ import yaml
 
 from data.ingestion import pair_image_and_mask_files, sha256_file
 from data.preprocessing import summarize_volume
+from data.quality import validate_registry_schema
+
+
+DATASET_REGISTRY_SCHEMA_PATH = Path("data/contracts/dataset_registry.schema.json")
 
 
 def _now_utc() -> str:
@@ -119,6 +123,8 @@ def update_dataset_registry(
     else:
         registry = {}
 
+    registry["schema_version"] = str(registry.get("schema_version") or "1.0")
+    registry["updated_at_utc"] = _now_utc()
     datasets = registry.get("datasets", [])
     filtered = [
         entry
@@ -136,9 +142,15 @@ def update_dataset_registry(
             "manifest_path": str(manifest_path) if manifest_path else None,
             "images_dir": manifest["images_dir"],
             "labels_dir": manifest["labels_dir"],
+            "quality_status": manifest.get("quality_report", {}).get("status", "unknown"),
+            "source_url": manifest.get("source_url"),
+            "data_contract_path": manifest.get("data_contract", {}).get("path"),
         }
     )
 
     registry["datasets"] = sorted(filtered, key=lambda entry: (entry["dataset_name"], entry["version"]))
+    schema_errors = validate_registry_schema(registry, DATASET_REGISTRY_SCHEMA_PATH)
+    if schema_errors:
+        raise ValueError(f"Registry invalido contra el schema: {schema_errors}")
     destination.write_text(yaml.safe_dump(registry, sort_keys=False, allow_unicode=False), encoding="utf-8")
     return destination

@@ -1,9 +1,11 @@
 dataset_name: task04_hippocampus
 display_name: Medical Segmentation Decathlon Task04 Hippocampus
+dataset_json_name: Hippocampus
 official_source:
   challenge: Medical Segmentation Decathlon
   homepage: http://medicaldecathlon.com/
   archive_url: https://drive.google.com/uc?export=download&id=1RzPB1_bqzQhlWvU-YGvZzhx2omcDh38C
+  archive_filename: Task04_Hippocampus.tar
   open_data_registry: https://registry.opendata.aws/msd/
   paper: https://www.nature.com/articles/s41467-022-30695-9
 owner: Vanderbilt University Medical Center
@@ -14,8 +16,8 @@ modality:
 tensor_image_size: 3D
 labels:
   "0": background
-  "1": anterior
-  "2": posterior
+  "1": Anterior
+  "2": Posterior
 splits:
   training_labeled: 260
   test_unlabeled: 130

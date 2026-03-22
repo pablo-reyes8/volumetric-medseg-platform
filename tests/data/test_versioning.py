@@ -3,6 +3,7 @@ from pathlib import Path
 import yaml
 import numpy as np
 
+from data.quality import validate_registry_schema
 from data.versioning import build_dataset_manifest, save_dataset_manifest, update_dataset_registry
 from tests.utils import write_nifti
 
@@ -27,7 +28,11 @@ def test_build_manifest_and_update_registry(tmp_path: Path):
     manifest_path = save_dataset_manifest(manifest, tmp_path / "manifest.json")
     registry_path = update_dataset_registry(manifest, tmp_path / "datasets.yaml", manifest_path=manifest_path)
     registry = yaml.safe_load(registry_path.read_text(encoding="utf-8"))
+    schema_errors = validate_registry_schema(registry, "data/contracts/dataset_registry.schema.json")
 
     assert manifest["total_pairs"] == 1
     assert manifest_path.exists()
+    assert schema_errors == []
+    assert registry["schema_version"] == "1.0"
     assert registry["datasets"][0]["dataset_name"] == "hippocampus"
+    assert registry["datasets"][0]["quality_status"] == "unknown"

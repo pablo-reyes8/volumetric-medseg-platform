@@ -139,10 +139,18 @@ def generate_quality_report(
     }
 
 
-def validate_manifest_schema(manifest: Dict[str, object], schema_path: Path | str) -> List[str]:
+def validate_json_schema(payload: object, schema_path: Path | str) -> List[str]:
     schema = json.loads(Path(schema_path).read_text(encoding="utf-8"))
     validator = Draft202012Validator(schema)
-    return [error.message for error in validator.iter_errors(manifest)]
+    return [error.message for error in validator.iter_errors(payload)]
+
+
+def validate_manifest_schema(manifest: Dict[str, object], schema_path: Path | str) -> List[str]:
+    return validate_json_schema(manifest, schema_path)
+
+
+def validate_registry_schema(registry: Dict[str, object], schema_path: Path | str) -> List[str]:
+    return validate_json_schema(registry, schema_path)
 
 
 def validate_task04_dataset_layout(dataset_root: Path | str, contract_path: Path | str) -> Dict[str, object]:

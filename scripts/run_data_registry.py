@@ -22,6 +22,7 @@ def main() -> None:
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from data.versioning import build_dataset_manifest, save_dataset_manifest, update_dataset_registry
+    from data.quality import validate_manifest_schema
 
     manifest = build_dataset_manifest(
         images_dir=args.images_dir,
@@ -31,6 +32,9 @@ def main() -> None:
         source_url=args.source_url,
         notes=args.notes,
     )
+    schema_errors = validate_manifest_schema(manifest, "data/contracts/dataset_manifest.schema.json")
+    if schema_errors:
+        raise ValueError(f"Manifest invalido contra el schema: {schema_errors}")
     manifest_path = save_dataset_manifest(manifest, args.manifest_out)
     registry_path = update_dataset_registry(manifest, args.registry_path, manifest_path=manifest_path)
     print(f"Manifest saved to {manifest_path}")
