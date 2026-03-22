@@ -12,7 +12,6 @@ RUN useradd --create-home --shell /bin/bash appuser && \
     mkdir -p /models
 
 COPY requirements ./requirements
-COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements/api.txt
 

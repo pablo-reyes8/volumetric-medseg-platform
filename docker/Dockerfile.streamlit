@@ -3,7 +3,8 @@ FROM python:3.11-slim
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app \
-    UNET3D_DEVICE=auto \
+    STREAMLIT_SERVER_PORT=8501 \
+    UNET3D_API_URL=http://api:8000 \
     UNET3D_MODEL_PATH=/models/unet3d_best.pt
 
 WORKDIR /app
@@ -12,19 +13,19 @@ RUN useradd --create-home --shell /bin/bash appuser && \
     mkdir -p /models
 
 COPY requirements ./requirements
-COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements/api.txt
+    pip install --no-cache-dir -r requirements/app.txt
 
+COPY app ./app
 COPY src ./src
 COPY model.yaml README.md LICENSE ./
 
 USER appuser
 
-EXPOSE 8000
+EXPOSE 8501
 VOLUME ["/models"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=5)"
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health', timeout=5)"
 
-CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["streamlit", "run", "app/streamlit_app.py", "--server.address=0.0.0.0", "--server.port=8501", "--browser.gatherUsageStats=false"]

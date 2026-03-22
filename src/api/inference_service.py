@@ -2,7 +2,7 @@ import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import nibabel as nib
 import numpy as np
@@ -20,11 +20,21 @@ class PredictionResult:
     affine: np.ndarray
     input_shape: Tuple[int, int, int]
     padded_shape: Tuple[int, int, int]
-    runtime_ms: float
+    preprocess_ms: float
+    inference_ms: float
+    postprocess_ms: float
+    total_runtime_ms: float
     device: str
-    filename: str
+    input_filename: str
+    output_filename: str
     threshold_used: float
     class_histogram: Dict[int, int]
+    class_ratios: Dict[int, float]
+    labels_present: List[int]
+    voxel_count: int
+    intensity_range: Tuple[float, float]
+    voxel_spacing: Tuple[float, float, float]
+    orientation: Tuple[str, str, str]
 
 
 class SegmentationService:
@@ -41,6 +51,9 @@ class SegmentationService:
     @property
     def model_ready(self) -> bool:
         return self._model is not None
+
+    def reload_model(self) -> torch.nn.Module:
+        return self.load_model(force_reload=True)
 
     def load_model(self, force_reload: bool = False) -> torch.nn.Module:
         """Carga el checkpoint en memoria si aún no está disponible."""
@@ -82,16 +95,20 @@ class SegmentationService:
         model = self.load_model()
         threshold = float(threshold) if threshold is not None else float(self.settings.default_threshold)
 
-        volume, affine = self._load_volume(volume_path)
+        total_start = time.perf_counter()
+        preprocess_start = time.perf_counter()
+        volume, affine, voxel_spacing, orientation = self._load_volume(volume_path)
         input_shape = volume.shape
+        intensity_range = (float(volume.min()), float(volume.max()))
 
         normed = minmax_normalize(volume, clip=self.settings.clip_percentiles)
         padded, pad_info = self._pad_to_multiple(normed)
         padded_shape = padded.shape
+        preprocess_ms = (time.perf_counter() - preprocess_start) * 1000.0
 
         x = torch.from_numpy(padded[None, None, ...]).float().to(self.device)
 
-        start = time.perf_counter()
+        inference_start = time.perf_counter()
         with torch.no_grad():
             logits = model(x)
             if self.settings.num_classes == 1:
@@ -100,12 +117,16 @@ class SegmentationService:
             else:
                 probs = torch.softmax(logits, dim=1)
                 pred = torch.argmax(probs, dim=1, keepdim=True).to(torch.uint8)
-        runtime_ms = (time.perf_counter() - start) * 1000.0
+        inference_ms = (time.perf_counter() - inference_start) * 1000.0
 
+        postprocess_start = time.perf_counter()
         pred_np = pred.squeeze(0).squeeze(0).cpu().numpy()
         pred_np = self._remove_padding(pred_np, pad_info)
 
         hist = self._class_histogram(pred_np)
+        class_ratios = self._class_ratios(hist)
+        labels_present = sorted(hist.keys())
+        voxel_count = int(pred_np.size)
 
         nifti_img = nib.Nifti1Image(pred_np.astype(np.uint8), affine=affine)
         with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=False) as tmp:
@@ -115,22 +136,34 @@ class SegmentationService:
             mask_bytes = tmp_path.read_bytes()
         finally:
             tmp_path.unlink(missing_ok=True)
+        postprocess_ms = (time.perf_counter() - postprocess_start) * 1000.0
+        total_runtime_ms = (time.perf_counter() - total_start) * 1000.0
 
-        filename = f"{self._basename(volume_path)}_mask.nii.gz"
+        output_filename = f"{self._basename(volume_path)}_mask.nii.gz"
         return PredictionResult(
             mask=pred_np,
             mask_bytes=mask_bytes,
             affine=affine,
             input_shape=input_shape,
             padded_shape=padded_shape,
-            runtime_ms=runtime_ms,
+            preprocess_ms=preprocess_ms,
+            inference_ms=inference_ms,
+            postprocess_ms=postprocess_ms,
+            total_runtime_ms=total_runtime_ms,
             device=str(self.device),
-            filename=filename,
+            input_filename=volume_path.name,
+            output_filename=output_filename,
             threshold_used=threshold,
             class_histogram=hist,
+            class_ratios=class_ratios,
+            labels_present=labels_present,
+            voxel_count=voxel_count,
+            intensity_range=intensity_range,
+            voxel_spacing=voxel_spacing,
+            orientation=orientation,
         )
 
-    def _load_volume(self, path: Path) -> Tuple[np.ndarray, np.ndarray]:
+    def _load_volume(self, path: Path) -> Tuple[np.ndarray, np.ndarray, Tuple[float, float, float], Tuple[str, str, str]]:
         if not path.exists():
             raise FileNotFoundError(f"No se encontró el archivo {path}")
         img = nib.load(str(path))
@@ -140,7 +173,9 @@ class SegmentationService:
             data = data[..., 0]
         if data.ndim != 3:
             raise ValueError(f"Se esperaba un volumen 3D; shape recibido {data.shape}")
-        return data, canonical.affine
+        voxel_spacing = tuple(float(value) for value in canonical.header.get_zooms()[:3])
+        orientation = tuple(str(axis) for axis in nib.aff2axcodes(canonical.affine))
+        return data, canonical.affine, voxel_spacing, orientation
 
     def _pick_device(self) -> str:
         if self.settings.device == "auto":
@@ -176,6 +211,10 @@ class SegmentationService:
     def _class_histogram(self, arr: np.ndarray) -> Dict[int, int]:
         unique, counts = np.unique(arr, return_counts=True)
         return {int(k): int(v) for k, v in zip(unique, counts)}
+
+    def _class_ratios(self, histogram: Dict[int, int]) -> Dict[int, float]:
+        total = max(1, sum(histogram.values()))
+        return {label: round(count / total, 6) for label, count in histogram.items()}
 
     def _basename(self, path: Path) -> str:
         name = path.name

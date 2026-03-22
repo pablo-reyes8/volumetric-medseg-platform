@@ -1,0 +1,6 @@
+-r base.txt
+
+fastapi>=0.103,<0.110
+uvicorn[standard]>=0.23
+python-multipart>=0.0.6
+pydantic>=1.10,<2.0
