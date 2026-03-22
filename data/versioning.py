@@ -28,6 +28,9 @@ def build_dataset_manifest(
     source_url: Optional[str] = None,
     notes: Optional[str] = None,
     extra_metadata: Optional[Dict[str, object]] = None,
+    source_metadata: Optional[Dict[str, object]] = None,
+    data_contract_path: Optional[Path | str] = None,
+    quality_report: Optional[Dict[str, object]] = None,
 ) -> Dict[str, object]:
     image_dir_path = Path(images_dir)
     label_dir_path = Path(labels_dir)
@@ -70,12 +73,22 @@ def build_dataset_manifest(
         "notes": notes,
         "images_dir": str(image_dir_path),
         "labels_dir": str(label_dir_path),
+        "source_metadata": source_metadata or {},
+        "data_contract": {"path": str(data_contract_path)} if data_contract_path else {},
         "total_pairs": len(records),
         "summary": {
             "mean_image_shape": _mean_shape(image_shapes),
             "mean_label_shape": _mean_shape(label_shapes),
             "unique_image_shapes": sorted({tuple(shape) for shape in image_shapes}),
             "unique_label_shapes": sorted({tuple(shape) for shape in label_shapes}),
+        },
+        "quality_report": quality_report
+        or {
+            "status": "unknown",
+            "passed_pairs": len(records),
+            "failed_pairs": 0,
+            "rules": {},
+            "issues": [],
         },
         "records": records,
         "extra_metadata": extra_metadata or {},

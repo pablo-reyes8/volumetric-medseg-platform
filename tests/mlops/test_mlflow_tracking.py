@@ -89,6 +89,7 @@ def test_train_with_mlflow_logs_params_metrics_and_artifacts(tmp_path: Path, mon
     assert len(client.metrics) == 2
     assert any(artifact_path == "checkpoints" for _, artifact_path in client.artifacts)
     assert any(artifact_path == "data" for _, artifact_path in client.artifacts)
+    assert any(artifact_file == "packaging/packaging_manifest.json" for artifact_file, _ in client.dicts)
     assert client.ended == "FINISHED"
     assert "Epoch 1" in history_train
     assert "Epoch 2" in history_val

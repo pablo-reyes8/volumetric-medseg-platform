@@ -72,6 +72,30 @@ class Settings(BaseSettings):
         default_factory=lambda: ["*"],
         description="CORS: origenes permitidos para el front.",
     )
+    monitoring_window_seconds: int = Field(
+        default=3600,
+        ge=60,
+        description="Ventana de agregacion para el monitoreo runtime en segundos.",
+    )
+    cpu_hourly_cost_usd: float = Field(
+        default=0.25,
+        ge=0.0,
+        description="Costo horario estimado para serving CPU.",
+    )
+    gpu_hourly_cost_usd: float = Field(
+        default=1.5,
+        ge=0.0,
+        description="Costo horario estimado para serving GPU.",
+    )
+    memory_gb_hourly_cost_usd: float = Field(
+        default=0.02,
+        ge=0.0,
+        description="Costo horario estimado por GB RSS consumido.",
+    )
+    operating_policy_path: Path = Field(
+        default=Path("src/mlops/policies/default_operating_policy.yaml"),
+        description="Ruta a la politica operativa de monitoreo, retraining y rollback.",
+    )
 
     class Config:
         env_prefix = "UNET3D_"

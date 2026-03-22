@@ -2,6 +2,7 @@ import io
 import logging
 import shutil
 import tempfile
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,19 +16,25 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from src.api.inference_service import PredictionResult, SegmentationService
 from src.api.model_card import extract_maintainers, load_model_card
 from src.api.schemas import (
+    EndpointMonitoringResponse,
     ErrorResponse,
     HealthResponse,
     ModelMetadata,
     ModelReloadResponse,
+    MonitoringRuntimeResponse,
+    OperatingPolicyResponse,
     PredictionResponse,
     PredictionStats,
     PreprocessingSummary,
     ReadinessResponse,
+    RetrainingAssessmentResponse,
     RuntimeBreakdown,
     RuntimeConfigResponse,
     ServiceInfoResponse,
 )
 from src.api.settings import Settings
+from src.mlops.retraining import evaluate_retraining_recommendations, load_operating_policy, summarize_monitored_signals
+from src.mlops.runtime_monitoring import RuntimeMonitor
 
 logger = logging.getLogger("unet3d.api")
 
@@ -38,6 +45,10 @@ def get_settings(request: Request) -> Settings:
 
 def get_service(request: Request) -> SegmentationService:
     return request.app.state.service
+
+
+def get_runtime_monitor(request: Request) -> RuntimeMonitor:
+    return request.app.state.runtime_monitor
 
 
 def _ensure_nifti(filename: Optional[str], settings: Settings) -> None:
@@ -115,11 +126,15 @@ def create_app(app_settings: Optional[Settings] = None) -> FastAPI:
     settings = app_settings or Settings()
     logging.basicConfig(level=getattr(logging, settings.log_level))
     service = SegmentationService(settings=settings)
+    runtime_monitor = RuntimeMonitor(settings=settings)
+    operating_policy = load_operating_policy(settings.operating_policy_path)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.settings = settings
         app.state.service = service
+        app.state.runtime_monitor = runtime_monitor
+        app.state.operating_policy = operating_policy
         if settings.preload_model:
             try:
                 model = service.load_model()
@@ -159,8 +174,18 @@ def create_app(app_settings: Optional[Settings] = None) -> FastAPI:
     @app.middleware("http")
     async def add_request_id(request: Request, call_next):
         request.state.request_id = request.headers.get("X-Request-ID", str(uuid4()))
+        started_at = datetime.now(timezone.utc)
+        start_perf = time.perf_counter()
         response = await call_next(request)
+        latency_ms = max(0.0, (time.perf_counter() - start_perf) * 1000.0)
+        request.app.state.runtime_monitor.record_request(
+            path=request.url.path,
+            method=request.method,
+            status_code=response.status_code,
+            latency_ms=latency_ms,
+        )
         response.headers["X-Request-ID"] = request.state.request_id
+        response.headers["X-Processed-At"] = started_at.isoformat()
         return response
 
     @app.exception_handler(HTTPException)
@@ -284,7 +309,58 @@ def create_app(app_settings: Optional[Settings] = None) -> FastAPI:
             pad_multiple=current_settings.pad_multiple,
             clip_percentiles=current_settings.clip_percentiles,
             supported_extensions=list(current_settings.supported_extensions),
+            monitoring_window_seconds=current_settings.monitoring_window_seconds,
+            cpu_hourly_cost_usd=current_settings.cpu_hourly_cost_usd,
+            gpu_hourly_cost_usd=current_settings.gpu_hourly_cost_usd,
+            memory_gb_hourly_cost_usd=current_settings.memory_gb_hourly_cost_usd,
         )
+
+    @app.get(
+        "/api/v1/monitoring/runtime",
+        response_model=MonitoringRuntimeResponse,
+        tags=["monitoring"],
+        summary="Monitoreo runtime del servicio de inferencia",
+    )
+    async def monitoring_runtime(
+        monitor: RuntimeMonitor = Depends(get_runtime_monitor),
+    ) -> MonitoringRuntimeResponse:
+        snapshot = monitor.snapshot()
+        snapshot["endpoints"] = {
+            key: EndpointMonitoringResponse(**value) for key, value in snapshot.get("endpoints", {}).items()
+        }
+        return MonitoringRuntimeResponse(**snapshot)
+
+    @app.get(
+        "/api/v1/monitoring/policy",
+        response_model=OperatingPolicyResponse,
+        tags=["monitoring"],
+        summary="Politica operativa de monitoreo, retraining y rollback",
+    )
+    async def monitoring_policy(request: Request) -> OperatingPolicyResponse:
+        policy = request.app.state.operating_policy
+        return OperatingPolicyResponse(
+            policy_path=str(settings.operating_policy_path),
+            monitored_signals=summarize_monitored_signals(policy)["tracked_signals"],
+            monitoring_thresholds=summarize_monitored_signals(policy)["slo_thresholds"],
+            retraining=policy.get("retraining", {}),
+            rollback=policy.get("rollback", {}),
+        )
+
+    @app.get(
+        "/api/v1/monitoring/retraining-assessment",
+        response_model=RetrainingAssessmentResponse,
+        tags=["monitoring"],
+        summary="Recomendaciones de retraining y rollback basadas en la politica operativa",
+    )
+    async def retraining_assessment(
+        request: Request,
+        monitor: RuntimeMonitor = Depends(get_runtime_monitor),
+    ) -> RetrainingAssessmentResponse:
+        assessment = evaluate_retraining_recommendations(
+            policy=request.app.state.operating_policy,
+            runtime_snapshot=monitor.snapshot(),
+        )
+        return RetrainingAssessmentResponse(**assessment)
 
     @app.post("/api/v1/model/reload", response_model=ModelReloadResponse, tags=["model"], summary="Recargar checkpoint")
     async def reload_model(

@@ -2,7 +2,7 @@ import json
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import torch
 
@@ -25,6 +25,7 @@ class MLflowRunConfig:
     run_name: Optional[str] = None
     tracking_uri: Optional[str] = None
     tags: Dict[str, str] = field(default_factory=dict)
+    log_packaging_artifacts: bool = True
 
 
 class MLflowTrainingTracker:
@@ -81,10 +82,54 @@ class MLflowTrainingTracker:
         if file_path.exists():
             self.client.log_artifact(str(file_path), artifact_path=artifact_path)
 
+    def log_artifact_bundle(self, items: Dict[str, List[Path]]) -> None:
+        for artifact_path, paths in items.items():
+            for path in paths:
+                self.log_artifact(path, artifact_path=artifact_path)
+
     def finish(self, status: str = "FINISHED") -> None:
         if self._active and hasattr(self.client, "end_run"):
             self.client.end_run(status=status)
         self._active = False
+
+
+def _default_packaging_artifacts() -> Dict[str, List[Path]]:
+    candidate_mapping = {
+        "packaging": [
+            Path("requirements.txt"),
+            Path("requirements/base.txt"),
+            Path("requirements/api.txt"),
+            Path("requirements/app.txt"),
+            Path("requirements/dev.txt"),
+            Path("Dockerfile"),
+            Path("docker/Dockerfile.api"),
+            Path("docker/Dockerfile.streamlit"),
+            Path("docker-compose.yml"),
+            Path("model.yaml"),
+        ],
+        "serving": [
+            Path("src/api/main.py"),
+            Path("src/api/inference_service.py"),
+            Path("app/streamlit_app.py"),
+        ],
+        "dataops": [
+            Path("data/README.md"),
+            Path("data/contracts/dataset_manifest.schema.json"),
+            Path("data/contracts/task04_hippocampus.contract.yaml"),
+            Path("data/sources/task04_hippocampus.yaml"),
+            Path("data/registry/datasets.yaml"),
+        ],
+        "mlops": [
+            Path("src/mlops/mlflow_tracking.py"),
+            Path("src/mlops/drift.py"),
+            Path("src/mlops/retraining.py"),
+            Path("src/mlops/policies/default_operating_policy.yaml"),
+        ],
+    }
+    return {
+        artifact_path: [path for path in paths if path.exists()]
+        for artifact_path, paths in candidate_mapping.items()
+    }
 
 
 def train_unet_with_mlflow(
@@ -153,6 +198,14 @@ def train_unet_with_mlflow(
         model_card = Path("model.yaml")
         if model_card.exists():
             tracker_instance.log_artifact(model_card, artifact_path="metadata")
+        packaging_manifest = {
+            artifact_path: [str(path) for path in paths]
+            for artifact_path, paths in _default_packaging_artifacts().items()
+            if paths
+        }
+        tracker_instance.log_dict(packaging_manifest, "packaging/packaging_manifest.json")
+        if tracker_instance.config.log_packaging_artifacts:
+            tracker_instance.log_artifact_bundle(_default_packaging_artifacts())
         tracker_instance.finish(status="FINISHED")
         return history_train, history_val
     except Exception:

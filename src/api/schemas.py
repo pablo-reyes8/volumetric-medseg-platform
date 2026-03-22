@@ -69,6 +69,10 @@ class RuntimeConfigResponse(BaseModel):
     pad_multiple: int
     clip_percentiles: Tuple[int, int]
     supported_extensions: List[str]
+    monitoring_window_seconds: int
+    cpu_hourly_cost_usd: float
+    gpu_hourly_cost_usd: float
+    memory_gb_hourly_cost_usd: float
 
 
 class RuntimeBreakdown(BaseModel):
@@ -111,6 +115,39 @@ class ModelReloadResponse(BaseModel):
     model_loaded: bool
     model_path: str
     device: str
+
+
+class EndpointMonitoringResponse(BaseModel):
+    requests: int
+    error_rate: float
+    p95_latency_ms: float
+
+
+class MonitoringRuntimeResponse(BaseModel):
+    window_seconds: int
+    uptime_seconds: float
+    totals: Dict[str, float | int]
+    throughput: Dict[str, float]
+    latency_ms: Dict[str, float]
+    resources: Dict[str, float | bool]
+    cost_estimate: Dict[str, float]
+    endpoints: Dict[str, EndpointMonitoringResponse]
+
+
+class OperatingPolicyResponse(BaseModel):
+    policy_path: str
+    monitored_signals: List[str]
+    monitoring_thresholds: Dict[str, float]
+    retraining: Dict[str, str | float | int]
+    rollback: Dict[str, str | float | int]
+
+
+class RetrainingAssessmentResponse(BaseModel):
+    created_at_utc: datetime
+    recommended_actions: List[str]
+    reasons: List[str]
+    rollback_action: Optional[str] = None
+    policy_summary: Dict[str, str | float | int | None]
 
 
 class ErrorResponse(BaseModel):

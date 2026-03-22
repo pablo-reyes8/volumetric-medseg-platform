@@ -77,6 +77,11 @@ def test_api_endpoints_return_metadata_and_downloads(tmp_path: Path):
         config_response = client.get("/api/v1/config")
         assert config_response.status_code == 200
         assert config_response.json()["pad_multiple"] == settings.pad_multiple
+        assert config_response.json()["monitoring_window_seconds"] == settings.monitoring_window_seconds
+
+        policy_response = client.get("/api/v1/monitoring/policy")
+        assert policy_response.status_code == 200
+        assert "latency_p95_ms_max" in policy_response.json()["monitoring_thresholds"]
 
         upload = {"file": ("study_01.nii.gz", nifti_bytes(mask.astype(np.float32)), "application/gzip")}
         prediction_response = client.post("/api/v1/predictions", files=upload)
@@ -91,6 +96,10 @@ def test_api_endpoints_return_metadata_and_downloads(tmp_path: Path):
         assert download_response.headers["content-disposition"] == 'attachment; filename="study_01_mask.nii.gz"'
         assert download_response.content
 
+        runtime_response = client.get("/api/v1/monitoring/runtime")
+        assert runtime_response.status_code == 200
+        assert runtime_response.json()["totals"]["requests"] >= 1
+
         legacy_response = client.post("/v1/predict?return_binary=true", files=upload)
         assert legacy_response.status_code == 200
         assert legacy_response.headers["content-disposition"] == 'attachment; filename="study_01_mask.nii.gz"'
@@ -98,6 +107,10 @@ def test_api_endpoints_return_metadata_and_downloads(tmp_path: Path):
         reload_response = client.post("/api/v1/model/reload")
         assert reload_response.status_code == 200
         assert dummy_service.reload_calls == 1
+
+        assessment_response = client.get("/api/v1/monitoring/retraining-assessment")
+        assert assessment_response.status_code == 200
+        assert "recommended_actions" in assessment_response.json()
 
 
 def test_api_rejects_non_nifti_upload(tmp_path: Path):

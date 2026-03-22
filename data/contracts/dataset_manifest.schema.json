@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unet3d-medseg.local/schemas/dataset-manifest.schema.json",
+  "title": "UNet3D Dataset Manifest",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "dataset_name",
+    "version",
+    "created_at_utc",
+    "images_dir",
+    "labels_dir",
+    "total_pairs",
+    "summary",
+    "quality_report",
+    "records"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "dataset_name": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "created_at_utc": {
+      "type": "string"
+    },
+    "source_url": {
+      "type": ["string", "null"]
+    },
+    "notes": {
+      "type": ["string", "null"]
+    },
+    "images_dir": {
+      "type": "string"
+    },
+    "labels_dir": {
+      "type": "string"
+    },
+    "source_metadata": {
+      "type": "object"
+    },
+    "data_contract": {
+      "type": "object"
+    },
+    "total_pairs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "summary": {
+      "type": "object"
+    },
+    "quality_report": {
+      "type": "object",
+      "required": ["status", "passed_pairs", "failed_pairs", "rules", "issues"]
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["case_id", "image", "label"]
+      }
+    },
+    "extra_metadata": {
+      "type": "object"
+    }
+  }
+}

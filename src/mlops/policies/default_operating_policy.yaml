@@ -1,0 +1,38 @@
+monitoring:
+  latency_p95_ms_max: 1500
+  error_rate_max: 0.02
+  throughput_min_rpm: 2.0
+  cpu_percent_max: 85.0
+  memory_percent_max: 85.0
+  estimated_cost_per_1000_requests_max_usd: 12.0
+  tracked_signals:
+    - request_latency_p50_ms
+    - request_latency_p95_ms
+    - throughput_requests_per_minute
+    - error_rate
+    - cpu_percent
+    - memory_percent
+    - gpu_memory_reserved_mb
+    - estimated_cost_per_1000_requests_usd
+retraining:
+  periodic_retrain_days: 30
+  full_rebaseline_days: 90
+  kpi_metric: mIoU
+  kpi_drop_absolute_max: 0.03
+  drift_psi_threshold: 0.2
+  drift_ks_threshold: 0.12
+  warmup_min_requests: 200
+rollback:
+  trigger_error_rate: 0.05
+  trigger_latency_p95_ms: 2500
+  trigger_consecutive_windows: 3
+  action: rollback_to_previous_champion
+actions:
+  periodic_retrain:
+    description: Scheduled champion-challenger retraining even without visible drift.
+  kpi_drop_retrain:
+    description: Trigger retraining when production KPI falls beyond the allowed band.
+  drift_retrain:
+    description: Trigger retraining when data distribution diverges from the approved baseline.
+  rollback:
+    description: Revert to the previous production model after severe runtime or KPI degradation.

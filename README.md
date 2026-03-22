@@ -9,14 +9,15 @@
 ![Forks](https://img.shields.io/github/forks/pablo-reyes8/unet3d-medseg?style=social)
 ![Stars](https://img.shields.io/github/stars/pablo-reyes8/unet3d-medseg?style=social)
 
-Portfolio-ready stack for 3D medical image segmentation with a UNet3D backbone. This repository goes beyond a training notebook: it packages the model as a usable product with a versioned FastAPI service, a Streamlit review console, test coverage, Dockerized services, and CLI entrypoints for reproducible local workflows.
+Portfolio-ready stack for 3D medical image segmentation with a UNet3D backbone. This repository goes beyond a training notebook: it packages the model as a usable product with a versioned FastAPI service, a Streamlit review console, test coverage, Dockerized services, CLI entrypoints, explicit DataOps contracts, and MLOps operating policies for reproducible local workflows.
 
 ## Why This Project Is Strong
 - **Real volumetric segmentation**: 3D UNet trained for medical volumes in NIfTI format, not 2D toy data.
 - **Inference pipeline that looks like production**: schema-driven FastAPI endpoints, health probes, model metadata, and reload support.
 - **Human-in-the-loop UI**: Streamlit app for remote or local inference, overlay inspection, histogram review, and mask download.
 - **Operational baseline in place**: dedicated Docker images, `docker-compose.yml`, environment-driven configuration, and a `tests/` suite.
-- **Data and monitoring are explicit**: root-level `data/` package, dataset manifests, registry versioning, MLflow hooks, and deployment drift checks.
+- **Data is treated as a product**: root-level `data/` package, source metadata, quality gates, contracts, manifests and dataset registry.
+- **MLOps is explicit**: MLflow hooks, deployment drift checks, retraining policies, rollback logic and runtime monitoring for serving.
 - **Clear extensibility path**: model card in `model.yaml`, CLI scripts in `scripts/`, and a clean separation between `training`, `api`, `data`, and `mlops`.
 
 ## Architecture
@@ -187,6 +188,29 @@ The project now promotes data to a first-class asset in the root `data/` package
 - `data/manifests/` for JSON dataset manifests,
 - `data/registry/datasets.yaml` for versioned dataset registration.
 
+### DataOps for Task04 Hippocampus
+The current canonical dataset is **Medical Segmentation Decathlon Task04 Hippocampus**. The repo now includes:
+- official source metadata in `data/sources/task04_hippocampus.yaml`,
+- an explicit data contract in `data/contracts/task04_hippocampus.contract.yaml`,
+- a manifest schema in `data/contracts/dataset_manifest.schema.json`,
+- quality validation in `data/quality.py`,
+- a preparation pipeline in `data/task04.py`.
+
+The data contract makes explicit:
+- modality: `MRI`,
+- tensor image size: `3D`,
+- labels: `0=background`, `1=anterior`, `2=posterior`,
+- expected archive layout: `dataset.json`, `imagesTr`, `labelsTr`, `imagesTs`,
+- required quality rules before a dataset version can be registered.
+
+End-to-end Task04 preparation:
+```bash
+python scripts/run_task04_dataops.py \
+  --dataset-version 2026.03.21
+```
+
+This pipeline downloads the official archive, extracts the raw layout, standardizes it into `data/processed/`, validates quality, creates a manifest and updates the registry.
+
 Create and register a dataset manifest:
 ```bash
 python scripts/run_data_registry.py \
@@ -203,7 +227,10 @@ python scripts/run_data_registry.py \
 - per-epoch train/validation metrics,
 - best checkpoint artifacts,
 - dataset manifests,
-- `model.yaml` as training metadata.
+- `model.yaml` as training metadata,
+- packaging manifests,
+- serving and container files,
+- data contracts and source metadata so the training run is audit-ready from data version to deployment package.
 
 ### Data drift for deployment
 `src/mlops/drift.py` builds a baseline profile from reference NIfTI volumes and evaluates candidate volumes using:
@@ -224,11 +251,38 @@ python scripts/run_drift_check.py evaluate \
   --baseline-path data/manifests/hippocampus_drift_baseline.json
 ```
 
+### Retraining and rollback policies
+The project now distinguishes multiple operational triggers instead of using drift alone:
+- **Periodic retraining** when the approved cadence is exceeded.
+- **KPI-driven retraining** when production segmentation quality falls below the champion by more than the allowed drop.
+- **Drift-driven retraining** when PSI, KS or distribution shift exceed the declared baseline thresholds.
+- **Rollback** when runtime incidents such as latency or error-rate regressions cross severe thresholds.
+
+The active policy is stored in `src/mlops/policies/default_operating_policy.yaml`, and the decision logic lives in `src/mlops/retraining.py`.
+
+### Deployment monitoring
+The API runtime monitor exposes what the serving layer actually tracks:
+- request latency,
+- throughput,
+- error rate,
+- per-endpoint behavior,
+- CPU and memory usage,
+- GPU memory usage when available,
+- estimated cost per 1000 requests.
+
+Useful endpoints:
+- `GET /api/v1/monitoring/runtime`
+- `GET /api/v1/monitoring/policy`
+- `GET /api/v1/monitoring/retraining-assessment`
+
+For the operating summary, see `docs/mlops_playbook.md`.
+
 ## Testing
 The `tests/` folder currently covers:
 - settings validation,
 - dataset pairing, loading and manifest versioning,
-- MLflow tracking hooks and deployment drift evaluation,
+- dataset quality contracts and Task04 source metadata,
+- MLflow tracking hooks, retraining policy logic and deployment drift evaluation,
 - inference-service metadata and padding behavior,
 - FastAPI routes for health, metadata, reload, prediction, and file validation.
 

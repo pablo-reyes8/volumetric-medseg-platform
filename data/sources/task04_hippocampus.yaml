@@ -1,0 +1,31 @@
+dataset_name: task04_hippocampus
+display_name: Medical Segmentation Decathlon Task04 Hippocampus
+official_source:
+  challenge: Medical Segmentation Decathlon
+  homepage: http://medicaldecathlon.com/
+  archive_url: https://drive.google.com/uc?export=download&id=1RzPB1_bqzQhlWvU-YGvZzhx2omcDh38C
+  open_data_registry: https://registry.opendata.aws/msd/
+  paper: https://www.nature.com/articles/s41467-022-30695-9
+owner: Vanderbilt University Medical Center
+license: CC-BY-SA 4.0
+description: Left and right hippocampus segmentation
+modality:
+  "0": MRI
+tensor_image_size: 3D
+labels:
+  "0": background
+  "1": anterior
+  "2": posterior
+splits:
+  training_labeled: 260
+  test_unlabeled: 130
+  total: 390
+archive_layout:
+  root_dir: Task04_Hippocampus
+  required_top_level:
+    - dataset.json
+    - imagesTr
+    - labelsTr
+    - imagesTs
+  ignore_patterns:
+    - "._*"

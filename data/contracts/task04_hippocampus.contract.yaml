@@ -1,0 +1,30 @@
+dataset_name: task04_hippocampus
+challenge: medical_segmentation_decathlon
+modality:
+  primary: MRI
+  tensor_image_size: 3D
+task: hippocampus_segmentation
+label_schema:
+  "0": background
+  "1": anterior
+  "2": posterior
+expected_structure:
+  required_top_level:
+    - dataset.json
+    - imagesTr
+    - labelsTr
+    - imagesTs
+  paired_training_folders:
+    images: imagesTr
+    labels: labelsTr
+  inference_folder: imagesTs
+quality_rules:
+  - no_zero_byte_files
+  - finite_voxels
+  - paired_image_label_shapes_match
+  - allowed_label_values_only
+  - non_empty_foreground_labels
+  - positive_voxel_spacing
+versioning:
+  manifest_schema: data/contracts/dataset_manifest.schema.json
+  registry_path: data/registry/datasets.yaml
