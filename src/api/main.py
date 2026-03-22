@@ -5,7 +5,7 @@ import tempfile
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Optional
 from uuid import uuid4
 
 from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile, status
@@ -211,7 +211,7 @@ def create_app(app_settings: Optional[Settings] = None) -> FastAPI:
 
     @app.get("/health", response_model=ReadinessResponse, tags=["monitoring"], summary="Estado general de la API")
     async def health(
-        current_service: Annotated[SegmentationService, Depends(get_service)],
+        current_service: SegmentationService = Depends(get_service),
     ) -> ReadinessResponse:
         weights_available = settings.model_path.exists()
         ready = current_service.model_ready and weights_available
@@ -228,20 +228,20 @@ def create_app(app_settings: Optional[Settings] = None) -> FastAPI:
 
     @app.get("/health/live", response_model=HealthResponse, tags=["monitoring"], summary="Liveness probe")
     async def health_live(
-        current_service: Annotated[SegmentationService, Depends(get_service)],
+        current_service: SegmentationService = Depends(get_service),
     ) -> HealthResponse:
         return _health_payload(current_service, ready=True, detail=None)
 
     @app.get("/health/ready", response_model=ReadinessResponse, tags=["monitoring"], summary="Readiness probe")
     async def health_ready(
-        current_service: Annotated[SegmentationService, Depends(get_service)],
+        current_service: SegmentationService = Depends(get_service),
     ) -> ReadinessResponse:
         return await health(current_service)
 
     @app.get("/api/v1/model", response_model=ModelMetadata, tags=["model"], summary="Metadatos del modelo")
     async def model_metadata(
-        current_service: Annotated[SegmentationService, Depends(get_service)],
-        current_settings: Annotated[Settings, Depends(get_settings)],
+        current_service: SegmentationService = Depends(get_service),
+        current_settings: Settings = Depends(get_settings),
     ) -> ModelMetadata:
         model_card = load_model_card(current_settings.model_card_path)
         inference = model_card.get("inference", {})
@@ -270,7 +270,7 @@ def create_app(app_settings: Optional[Settings] = None) -> FastAPI:
 
     @app.get("/api/v1/config", response_model=RuntimeConfigResponse, tags=["platform"], summary="Runtime config")
     async def runtime_config(
-        current_settings: Annotated[Settings, Depends(get_settings)],
+        current_settings: Settings = Depends(get_settings),
     ) -> RuntimeConfigResponse:
         return RuntimeConfigResponse(
             server_host=current_settings.server_host,
@@ -288,8 +288,8 @@ def create_app(app_settings: Optional[Settings] = None) -> FastAPI:
 
     @app.post("/api/v1/model/reload", response_model=ModelReloadResponse, tags=["model"], summary="Recargar checkpoint")
     async def reload_model(
-        current_service: Annotated[SegmentationService, Depends(get_service)],
-        current_settings: Annotated[Settings, Depends(get_settings)],
+        current_service: SegmentationService = Depends(get_service),
+        current_settings: Settings = Depends(get_settings),
     ) -> ModelReloadResponse:
         current_service.reload_model()
         return ModelReloadResponse(
@@ -312,8 +312,8 @@ def create_app(app_settings: Optional[Settings] = None) -> FastAPI:
         threshold: Optional[float] = Query(
             None, ge=0.0, le=1.0, description="Umbral opcional para segmentacion binaria."
         ),
-        current_service: Annotated[SegmentationService, Depends(get_service)] = None,
-        current_settings: Annotated[Settings, Depends(get_settings)] = None,
+        current_service: SegmentationService = Depends(get_service),
+        current_settings: Settings = Depends(get_settings),
     ) -> PredictionResponse:
         result = await _run_prediction(file, threshold, current_service, current_settings)
         return _build_prediction_response(_request_id(request), result, current_settings)
@@ -335,8 +335,8 @@ def create_app(app_settings: Optional[Settings] = None) -> FastAPI:
         threshold: Optional[float] = Query(
             None, ge=0.0, le=1.0, description="Umbral opcional para segmentacion binaria."
         ),
-        current_service: Annotated[SegmentationService, Depends(get_service)] = None,
-        current_settings: Annotated[Settings, Depends(get_settings)] = None,
+        current_service: SegmentationService = Depends(get_service),
+        current_settings: Settings = Depends(get_settings),
     ) -> StreamingResponse:
         result = await _run_prediction(file, threshold, current_service, current_settings)
         headers = {
@@ -372,8 +372,8 @@ def create_app(app_settings: Optional[Settings] = None) -> FastAPI:
         threshold: Optional[float] = Query(
             None, ge=0.0, le=1.0, description="Umbral opcional para segmentacion binaria."
         ),
-        current_service: Annotated[SegmentationService, Depends(get_service)] = None,
-        current_settings: Annotated[Settings, Depends(get_settings)] = None,
+        current_service: SegmentationService = Depends(get_service),
+        current_settings: Settings = Depends(get_settings),
     ):
         result = await _run_prediction(file, threshold, current_service, current_settings)
         if return_binary:

@@ -25,7 +25,7 @@ class InferenceBundle:
     summary: Dict[str, Any]
 
 
-st.set_page_config(page_title="UNet3D Portfolio Demo", page_icon="CT", layout="wide")
+st.set_page_config(page_title="UNet3D Portfolio Demo", layout="wide")
 
 st.markdown(
     """
@@ -108,7 +108,7 @@ def _extract_slice(volume: np.ndarray, axis: int, index: int) -> np.ndarray:
     return volume[:, :, index]
 
 
-def _render_overlay(volume: np.ndarray, mask: np.ndarray, axis: int, index: int, key_prefix: str) -> None:
+def _render_overlay(volume: np.ndarray, mask: np.ndarray, axis: int, index: int) -> None:
     image_slice = _extract_slice(volume, axis, index)
     mask_slice = _extract_slice(mask, axis, index)
     overlay = np.ma.masked_where(mask_slice <= 0, mask_slice)
@@ -278,7 +278,7 @@ def _render_result(bundle: InferenceBundle, key_prefix: str) -> None:
         st.caption(f"Request ID: `{summary['request_id']}`")
 
     with controls_right:
-        _render_overlay(bundle.volume, bundle.mask, axis=axis, index=index, key_prefix=key_prefix)
+        _render_overlay(bundle.volume, bundle.mask, axis=axis, index=index)
 
     details_col, histogram_col = st.columns([1.2, 1.0])
     with details_col:

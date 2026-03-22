@@ -9,93 +9,179 @@
 ![Forks](https://img.shields.io/github/forks/pablo-reyes8/unet3d-medseg?style=social)
 ![Stars](https://img.shields.io/github/stars/pablo-reyes8/unet3d-medseg?style=social)
 
-End-to-end stack for 3D medical image segmentation with a UNet3D backbone. The project is dual-purpose: it contains the training code for volumetric segmentation and a production-grade deployment path (FastAPI + Docker) with an interactive Streamlit front-end for human review.
+Portfolio-ready stack for 3D medical image segmentation with a UNet3D backbone. This repository goes beyond a training notebook: it packages the model as a usable product with a versioned FastAPI service, a Streamlit review console, test coverage, Dockerized services, and CLI entrypoints for reproducible local workflows.
 
-## Highlights
-- 3D UNet architecture with min–max normalization, percentile clipping, and padding to keep volumes aligned with encoder strides.
-- FastAPI service in `src/api` for file-based inference (NIfTI in, NIfTI out) with clean OpenAPI docs and CORS.
-- Streamlit app in `app/` to upload volumes, call the API or run local inference, and visualize slices with class histograms.
-- Container-ready via `Dockerfile`; configurable through environment variables (see `UNET3D_*` settings).
-- Model metadata captured in `model.yaml` for quick discoverability and auditing.
+## Why This Project Is Strong
+- **Real volumetric segmentation**: 3D UNet trained for medical volumes in NIfTI format, not 2D toy data.
+- **Inference pipeline that looks like production**: schema-driven FastAPI endpoints, health probes, model metadata, and reload support.
+- **Human-in-the-loop UI**: Streamlit app for remote or local inference, overlay inspection, histogram review, and mask download.
+- **Operational baseline in place**: dedicated Docker images, `docker-compose.yml`, environment-driven configuration, and a `tests/` suite.
+- **Clear extensibility path**: model card in `model.yaml`, CLI scripts in `scripts/`, and a clean separation between `training`, `api`, and `app`.
+
+## Architecture
+```
+Input volume (.nii/.nii.gz)
+        |
+        v
+  Preprocessing
+  - percentile clipping
+  - min-max normalization
+  - padding to multiples of 16
+        |
+        v
+     UNet3D
+        |
+        v
+  Predicted mask
+  - JSON metadata via FastAPI
+  - NIfTI download via FastAPI
+  - visual QA via Streamlit
+```
 
 ## Repository Structure
 ```
-├─ app/                     # Streamlit front-end for upload + visualization
-├─ experiments/             # Evaluation figures and qualitative samples
-├─ notebooks/               # Exploratory notebooks
+├─ app/                     # Streamlit review console
+├─ docker/                  # Dedicated Dockerfiles for API and Streamlit
+├─ experiments/             # Qualitative and quantitative results
+├─ requirements/            # Dependency profiles: base, api, app, dev
+├─ scripts/                 # CLI helpers for API, app, tests, and Docker
 ├─ src/
 │  ├─ api/                  # FastAPI app, schemas, settings, inference service
-│  ├─ data/                 # NIfTI loaders, preprocessing helpers
-│  ├─ model/                # UNet3D and building blocks
-│  ├─ model_inference.py/   # Analysis utilities (qualitative and posterior analysis)
-│  └─ training/             # Training loop, metrics, hyperparameter search
-├─ model.yaml               # Model card with metadata, I/O contract, serving info
-├─ requirements.txt         # Python dependencies
-└─ Dockerfile               # Container for the FastAPI service
+│  ├─ data/                 # NIfTI loading and preprocessing utilities
+│  ├─ model/                # UNet3D architecture and blocks
+│  ├─ model_inference.py/   # Analysis and qualitative utilities
+│  └─ training/             # Training loop and metrics
+├─ tests/                   # API, settings, and inference smoke tests
+├─ docker-compose.yml       # Multi-service local stack
+├─ model.yaml               # Model card and serving metadata
+├─ requirements.txt         # Full development dependencies
+└─ Dockerfile               # Backward-compatible API image build
 ```
 
-## Model Card (summary)
-- Name: `unet3d-segmentation` (`model.yaml`)
-- Task: 3D medical segmentation (NIfTI volumes)
-- Inputs: single-channel volume; min–max normalization with percentiles (1,99); padded to multiples of 16
-- Outputs: NIfTI mask with 3 classes (background + 2 foreground classes by default)
-- Checkpoint: `artifacts/unet3d_best.pt` (configurable via `UNET3D_MODEL_PATH`)
-- Serving: `src.api.main:app` on port `8000`; main endpoint `/v1/predict`
-- License: MIT (see README)
+## Model Card Snapshot
+- **Model**: `unet3d-segmentation`
+- **Framework**: PyTorch
+- **Task**: 3D medical segmentation over NIfTI volumes
+- **Input contract**: single-channel volume with percentile clipping `(1, 99)` and padding to multiples of `16`
+- **Output contract**: NIfTI mask with `3` classes by default
+- **Primary checkpoint path**: `artifacts/unet3d_best.pt`
+- **Serving metadata source**: `model.yaml`
 
-## Quickstart (local)
+## Quickstart
+### 1. Local environment
 ```bash
-python -m venv .venv && source .venv/bin/activate  # or activate on Windows
+python3 -m venv .venv
+source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
-export PYTHONPATH=.
-export UNET3D_MODEL_PATH=/absolute/path/to/your_checkpoint.pt  # required for inference
-uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### API usage
-- Docs: `http://localhost:8000/docs` or `http://localhost:8000/redoc`
-- Health: `GET /health`
-- Predict (returns JSON by default):
+### 2. Run the API
 ```bash
-curl -X POST "http://localhost:8000/v1/predict" \
+python scripts/run_api.py \
+  --reload \
+  --model-path /absolute/path/to/unet3d_best.pt
+```
+
+### 3. Run the Streamlit app
+```bash
+python scripts/run_app.py \
+  --api-url http://localhost:8000 \
+  --model-path /absolute/path/to/unet3d_best.pt
+```
+
+### 4. Run tests
+```bash
+python scripts/run_tests.py tests/api --verbose
+```
+
+## API Surface
+OpenAPI docs are available at `http://localhost:8000/docs` and `http://localhost:8000/redoc`.
+
+### Monitoring and platform
+- `GET /` returns service discovery info.
+- `GET /health/live` exposes liveness.
+- `GET /health/ready` exposes readiness and checkpoint/model checks.
+- `GET /api/v1/config` returns the active runtime config.
+
+### Model management
+- `GET /api/v1/model` returns model metadata derived from `model.yaml` and runtime settings.
+- `POST /api/v1/model/reload` forces a checkpoint reload without restarting the service.
+
+### Inference
+- `POST /api/v1/predictions` returns structured JSON with runtime breakdown, orientation, spacing, histogram, and threshold used.
+- `POST /api/v1/predictions/download` returns the predicted mask as `.nii.gz`.
+- `POST /v1/predict` remains available as a legacy compatibility endpoint.
+
+Example JSON inference:
+```bash
+curl -X POST "http://localhost:8000/api/v1/predictions" \
   -H "accept: application/json" \
   -F "file=@/path/to/volume.nii.gz"
 ```
-- Predict and download mask:
+
+Example binary download:
 ```bash
-curl -X POST "http://localhost:8000/v1/predict?return_binary=true" \
-  -H "accept: application/octet-stream" \
+curl -X POST "http://localhost:8000/api/v1/predictions/download" \
   -F "file=@/path/to/volume.nii.gz" \
   -o mask.nii.gz
 ```
-- Optional query `threshold` for binary models (default defined in settings).
 
-### Streamlit front-end
-```bash
-export PYTHONPATH=.
-streamlit run app/streamlit_app.py
-```
-Use the “Via API HTTP” tab to point to the FastAPI base URL, or “Local” to run inference on the same machine with the configured checkpoint.
+## Streamlit Review App
+The app supports two workflows:
+- **API Deployment**: checks API readiness, reads live model metadata, requests inference, and downloads the resulting mask.
+- **Local Checkpoint**: runs the same inference service locally for checkpoint validation on the same machine.
+
+Each run includes:
+- slice-by-slice inspection over any axis,
+- image/mask/overlay visualization,
+- runtime metrics and request identifiers,
+- class histograms and raw prediction metadata,
+- direct `.nii.gz` download for the predicted mask.
 
 ## Docker Deployment
-Build and run the API container:
-```bash
-docker build -t unet3d-api .
-docker run --rm -p 8000:8000 \
-  -e UNET3D_MODEL_PATH=/models/unet3d_best.pt \
-  -v /absolute/path/to/checkpoints:/models \
-  unet3d-api
-```
-Environment variables supported (all prefixed with `UNET3D_`):
-- `MODEL_PATH`: checkpoint path inside the container (default `/models/unet3d_best.pt`)
-- `DEVICE`: `auto` | `cuda` | `cpu` (defaults to auto-select)
-- `DEFAULT_THRESHOLD`, `PAD_MULTIPLE`, `CLIP_PERCENTILES`, `ALLOW_ORIGINS`, etc. (see `src/api/settings.py`)
+This repo now ships separate images for the backend and the review UI.
 
-## Training Notes
-- Training utilities live in `src/training/` and expect paired NIfTI volumes and masks with matching shapes.
-- Normalization uses min–max with optional percentile clipping; pad volumes to keep dimensions divisible by 16 for the encoder/decoder strides.
-- Example starting point: adapt `train_unet.py` to your dataloaders and call `train_uneted(...)` with early stopping/patience parameters from `model.yaml`.
+### Compose workflow
+```bash
+python scripts/run_docker.py build
+python scripts/run_docker.py up --detach
+```
+
+This starts:
+- `api` on `http://localhost:8000`
+- `streamlit` on `http://localhost:8501`
+
+To stop the stack:
+```bash
+python scripts/run_docker.py down
+```
+
+### Raw Docker builds
+```bash
+docker build -f docker/Dockerfile.api -t unet3d-medseg-api .
+docker build -f docker/Dockerfile.streamlit -t unet3d-medseg-streamlit .
+```
+
+## Configuration
+Environment variables use the `UNET3D_` prefix. The most relevant ones are:
+- `UNET3D_MODEL_PATH`
+- `UNET3D_DEVICE`
+- `UNET3D_DEFAULT_THRESHOLD`
+- `UNET3D_PAD_MULTIPLE`
+- `UNET3D_CLIP_PERCENTILES`
+- `UNET3D_ALLOW_ORIGINS`
+- `UNET3D_PRELOAD_MODEL`
+
+See `src/api/settings.py` for the full configuration contract.
+
+## Testing
+The `tests/` folder currently covers:
+- settings validation,
+- inference-service metadata and padding behavior,
+- FastAPI routes for health, metadata, reload, prediction, and file validation.
+
+This gives the project a real engineering baseline before moving into MLOps concerns such as CI/CD, registries, monitoring, and deployment automation.
 
 ## Visual Results
 
