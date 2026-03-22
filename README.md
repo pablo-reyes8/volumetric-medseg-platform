@@ -16,7 +16,8 @@ Portfolio-ready stack for 3D medical image segmentation with a UNet3D backbone. 
 - **Inference pipeline that looks like production**: schema-driven FastAPI endpoints, health probes, model metadata, and reload support.
 - **Human-in-the-loop UI**: Streamlit app for remote or local inference, overlay inspection, histogram review, and mask download.
 - **Operational baseline in place**: dedicated Docker images, `docker-compose.yml`, environment-driven configuration, and a `tests/` suite.
-- **Clear extensibility path**: model card in `model.yaml`, CLI scripts in `scripts/`, and a clean separation between `training`, `api`, and `app`.
+- **Data and monitoring are explicit**: root-level `data/` package, dataset manifests, registry versioning, MLflow hooks, and deployment drift checks.
+- **Clear extensibility path**: model card in `model.yaml`, CLI scripts in `scripts/`, and a clean separation between `training`, `api`, `data`, and `mlops`.
 
 ## Architecture
 ```
@@ -41,17 +42,18 @@ Input volume (.nii/.nii.gz)
 ## Repository Structure
 ```
 ├─ app/                     # Streamlit review console
+├─ data/                    # Dataset layout, manifests, registry, ingestion and preprocessing
 ├─ docker/                  # Dedicated Dockerfiles for API and Streamlit
 ├─ experiments/             # Qualitative and quantitative results
 ├─ requirements/            # Dependency profiles: base, api, app, dev
-├─ scripts/                 # CLI helpers for API, app, tests, and Docker
+├─ scripts/                 # CLI helpers for API, app, tests, Docker, data and drift
 ├─ src/
 │  ├─ api/                  # FastAPI app, schemas, settings, inference service
-│  ├─ data/                 # NIfTI loading and preprocessing utilities
+│  ├─ mlops/                # MLflow tracking and deployment drift evaluation
 │  ├─ model/                # UNet3D architecture and blocks
 │  ├─ model_inference.py/   # Analysis and qualitative utilities
 │  └─ training/             # Training loop and metrics
-├─ tests/                   # API, settings, and inference smoke tests
+├─ tests/                   # API, data and MLOps smoke tests
 ├─ docker-compose.yml       # Multi-service local stack
 ├─ model.yaml               # Model card and serving metadata
 ├─ requirements.txt         # Full development dependencies
@@ -92,7 +94,7 @@ python scripts/run_app.py \
 
 ### 4. Run tests
 ```bash
-python scripts/run_tests.py tests/api --verbose
+python scripts/run_tests.py tests/data tests/mlops tests/api --verbose
 ```
 
 ## API Surface
@@ -175,9 +177,58 @@ Environment variables use the `UNET3D_` prefix. The most relevant ones are:
 
 See `src/api/settings.py` for the full configuration contract.
 
+## Data and MLOps
+### Explicit dataset layout
+The project now promotes data to a first-class asset in the root `data/` package:
+- `data/raw/` for immutable source drops,
+- `data/external/` for downloaded archives,
+- `data/interim/` for temporary transformations,
+- `data/processed/` for training-ready volumes,
+- `data/manifests/` for JSON dataset manifests,
+- `data/registry/datasets.yaml` for versioned dataset registration.
+
+Create and register a dataset manifest:
+```bash
+python scripts/run_data_registry.py \
+  --images-dir data/processed/hippocampus/2026.03.21/imagesTr \
+  --labels-dir data/processed/hippocampus/2026.03.21/labelsTr \
+  --dataset-name hippocampus \
+  --version 2026.03.21 \
+  --manifest-out data/manifests/hippocampus_2026.03.21.json
+```
+
+### MLflow training wrapper
+`src/mlops/mlflow_tracking.py` adds a thin wrapper around the existing PyTorch training loop instead of replacing it. The wrapper logs:
+- training params and tags,
+- per-epoch train/validation metrics,
+- best checkpoint artifacts,
+- dataset manifests,
+- `model.yaml` as training metadata.
+
+### Data drift for deployment
+`src/mlops/drift.py` builds a baseline profile from reference NIfTI volumes and evaluates candidate volumes using:
+- KS statistic,
+- population stability index (PSI),
+- mean/std shift,
+- average shape shift.
+
+Build a drift baseline and evaluate a candidate batch:
+```bash
+python scripts/run_drift_check.py baseline \
+  --images-dir data/processed/hippocampus/2026.03.21/imagesTr \
+  --dataset-version 2026.03.21 \
+  --output-path data/manifests/hippocampus_drift_baseline.json
+
+python scripts/run_drift_check.py evaluate \
+  --images-dir data/interim/deployment_batch \
+  --baseline-path data/manifests/hippocampus_drift_baseline.json
+```
+
 ## Testing
 The `tests/` folder currently covers:
 - settings validation,
+- dataset pairing, loading and manifest versioning,
+- MLflow tracking hooks and deployment drift evaluation,
 - inference-service metadata and padding behavior,
 - FastAPI routes for health, metadata, reload, prediction, and file validation.
 

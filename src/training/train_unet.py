@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import torch 
 from src.training.train_one_epoch import *
 
@@ -5,7 +7,8 @@ def train_uneted(
     model, optimizer, device, criterion, num_classes, epocs, train_loader ,val_loader , 
     patience=10, min_delta=0.0, augmnet=None,
     target_metric=None,
-    save_best_path=None):
+    save_best_path=None,
+    epoch_callback=None):
 
     """
     Entrena U-Net 3D con early stopping sobre la métrica de validación (Dice o mIoU).
@@ -52,6 +55,9 @@ def train_uneted(
 
     history_train, history_val = {}, {}
     metric_key = "mIoU" if num_classes > 1 else "Dice"
+    if save_best_path is not None:
+        save_best_path = str(save_best_path)
+        Path(save_best_path).parent.mkdir(parents=True, exist_ok=True)
 
     best_metric = float("-inf")
     best_state = None
@@ -92,6 +98,16 @@ def train_uneted(
                 torch.save(best_state, save_best_path)
         else:
             epochs_no_improve += 1
+
+        if epoch_callback is not None:
+            epoch_callback(
+                epoch=epoch,
+                train_metrics=tr,
+                val_metrics=va,
+                metric_key=metric_key,
+                best_metric=best_metric,
+                improved=improved,
+            )
 
         if epochs_no_improve >= patience:
             print(f"[EarlyStop] Sin mejora en {metric_key} por {patience} épocas. Stop en epoch {epoch}.")

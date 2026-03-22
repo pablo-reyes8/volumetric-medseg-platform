@@ -9,7 +9,7 @@ import numpy as np
 import torch
 
 from src.api.settings import Settings
-from src.data.dataloaders import minmax_normalize
+from data.preprocessing import minmax_normalize
 from src.model.unet3d import UNet3D
 
 
