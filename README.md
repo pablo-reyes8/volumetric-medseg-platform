@@ -1,4 +1,4 @@
-# UNet3D Segmentation Suite
+# UNet3D Suite For Medical Segmentation
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
