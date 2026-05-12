@@ -1,0 +1,20 @@
+gates:
+  required:
+    min_mean_dice: 0.75
+    min_foreground_dice: 0.65
+    max_validation_loss: 0.60
+    max_empty_prediction_rate: 0.10
+    max_inference_latency_ms_p95: 5000
+  lineage:
+    require_dataset_manifest: true
+    require_training_config_hash: true
+    require_git_commit: true
+    require_mlflow_run_id: true
+  artifacts:
+    require_checkpoint: true
+    require_evaluation_report: true
+    require_model_package: true
+promotion:
+  allow_equal_version_overwrite: false
+  require_manual_flag: false
+  write_deployment_record: true

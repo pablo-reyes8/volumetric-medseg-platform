@@ -2,10 +2,22 @@ name: Docs and Config Check
 
 on:
   pull_request:
+    paths:
+      - "**/*.md"
+      - "**/*.yaml"
+      - "**/*.yml"
+      - "**/*.json"
+      - ".github/workflows/docs-check.yml"
   push:
     branches:
       - main
       - master
+    paths:
+      - "**/*.md"
+      - "**/*.yaml"
+      - "**/*.yml"
+      - "**/*.json"
+      - ".github/workflows/docs-check.yml"
 
 jobs:
   docs-config:

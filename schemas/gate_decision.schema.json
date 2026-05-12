@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MedSeg Gate Decision",
+  "type": "object",
+  "required": ["model_version", "passed", "failed_gates", "decision"],
+  "properties": {
+    "model_version": {"type": "string"},
+    "passed": {"type": "boolean"},
+    "failed_gates": {"type": "array", "items": {"type": "string"}},
+    "warnings": {"type": "array", "items": {"type": "string"}},
+    "decision": {"type": "string"}
+  }
+}

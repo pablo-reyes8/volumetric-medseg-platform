@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MedSeg Model Package",
+  "type": "object",
+  "required": ["model_name", "model_version", "stage", "created_at", "dataset", "training", "mlflow", "evaluation", "serving"],
+  "properties": {
+    "model_name": {"type": "string"},
+    "model_version": {"type": "string"},
+    "stage": {"type": "string"},
+    "created_at": {"type": ["string", "null"]},
+    "dataset": {"type": "object"},
+    "training": {"type": "object"},
+    "mlflow": {"type": "object"},
+    "evaluation": {"type": "object"},
+    "serving": {"type": "object"}
+  }
+}

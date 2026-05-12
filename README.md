@@ -17,6 +17,7 @@ Production-minded 3D medical image segmentation built around a PyTorch UNet3D. T
 - [Project Snapshot](#project-snapshot)
 - [Quickstart](#quickstart)
 - [Local-first MLOps Platform](#local-first-mlops-platform)
+- [Airflow-Orchestrated Local MLOps](#airflow-orchestrated-local-mlops)
 - [API Surface](#api-surface)
 - [Data and MLOps](#data-and-mlops)
 
@@ -198,6 +199,49 @@ python scripts/rollback_model.py --to previous
 ```
 
 Each model package is expected to include `model_package.yaml` with dataset lineage, config hashes, MLflow run ID, checkpoint path, evaluation report path and deployment status.
+
+## Airflow-Orchestrated Local MLOps
+Apache Airflow is the local orchestration layer for the complete MLOps lifecycle:
+
+1. Dataset validation and registration.
+2. Training, evaluation, and governed promotion.
+3. Monitoring, drift assessment, and retraining decisions.
+4. Full local lifecycle demo.
+
+| DAG | Purpose | Output |
+|---|---|---|
+| `dataset_validation_registration_dag` | Validates and registers dataset versions | Manifest + data quality report |
+| `train_evaluate_promote_dag` | Trains/evaluates candidate and promotes if gates pass | Candidate package + registry update |
+| `monitoring_drift_retraining_dag` | Evaluates deployed model health | Retraining/rollback assessment |
+| `local_full_lifecycle_demo_dag` | Runs the full lifecycle locally | Portfolio-grade demo summary |
+
+```mermaid
+flowchart LR
+    A[Dataset Contract] --> B[Airflow DataOps DAG]
+    B --> C[Dataset Manifest]
+    C --> D[Airflow Train/Eval/Promote DAG]
+    D --> E[MLflow Run]
+    D --> F[Evaluation Gates]
+    F --> G[Local Model Registry]
+    G --> H[FastAPI Serving]
+    H --> I[Prediction Metadata]
+    I --> J[Airflow Monitoring/Drift DAG]
+    J --> K[Retraining Decision]
+```
+
+Airflow commands:
+```bash
+make airflow-up
+make airflow-load-vars
+make airflow-init-connections
+make airflow-list-dags
+make airflow-test-demo
+```
+
+CPU-safe local demo:
+```bash
+make mlops-demo
+```
 
 ## End-to-End Workflow
 ```text

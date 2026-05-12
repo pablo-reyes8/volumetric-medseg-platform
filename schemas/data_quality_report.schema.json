@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MedSeg Data Quality Report",
+  "type": "object",
+  "required": ["status", "n_images", "n_labels", "n_pairs", "n_failures", "n_warnings"],
+  "properties": {
+    "status": {"type": "string"},
+    "n_images": {"type": "integer"},
+    "n_labels": {"type": "integer"},
+    "n_pairs": {"type": "integer"},
+    "n_failures": {"type": "integer"},
+    "n_warnings": {"type": "integer"},
+    "failures": {"type": "array"},
+    "warnings": {"type": "array"}
+  }
+}

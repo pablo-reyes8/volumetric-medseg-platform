@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MedSeg Retraining Assessment",
+  "type": "object",
+  "required": ["status", "decision", "severity", "reasons", "recommended_actions"],
+  "properties": {
+    "status": {"type": "string"},
+    "decision": {"type": "string"},
+    "severity": {"type": "string"},
+    "reasons": {"type": "array", "items": {"type": "string"}},
+    "recommended_actions": {"type": "array", "items": {"type": "string"}},
+    "rollback_recommended": {"type": "boolean"},
+    "retraining_recommended": {"type": "boolean"},
+    "capacity_investigation_recommended": {"type": "boolean"}
+  }
+}

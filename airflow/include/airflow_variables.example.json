@@ -1,0 +1,13 @@
+{
+  "MEDSEG_ARTIFACT_ROOT": "artifacts",
+  "MEDSEG_DATA_ROOT": "data",
+  "MEDSEG_MLFLOW_TRACKING_URI": "http://mlflow:5000",
+  "MEDSEG_API_URL": "http://api:8000",
+  "MEDSEG_STREAMLIT_URL": "http://streamlit:8501",
+  "MEDSEG_DEFAULT_DATASET_NAME": "task04_hippocampus",
+  "MEDSEG_DEFAULT_DATASET_VERSION": "2026.03.21",
+  "MEDSEG_DEFAULT_TRAINING_CONFIG": "configs/training/local_unet3d_smoke.yaml",
+  "MEDSEG_DEFAULT_EVAL_GATES": "configs/mlops/evaluation_gates.yaml",
+  "MEDSEG_DEFAULT_OPERATING_POLICY": "src/mlops/policies/default_operating_policy.yaml",
+  "MEDSEG_DRY_RUN": "false"
+}

@@ -2,10 +2,26 @@ name: Docker Build
 
 on:
   pull_request:
+    paths:
+      - "docker/**"
+      - "Dockerfile"
+      - "docker-compose.yml"
+      - "src/api/**"
+      - "app/**"
+      - "requirements/**"
+      - ".github/workflows/docker-build.yml"
   push:
     branches:
       - main
       - master
+    paths:
+      - "docker/**"
+      - "Dockerfile"
+      - "docker-compose.yml"
+      - "src/api/**"
+      - "app/**"
+      - "requirements/**"
+      - ".github/workflows/docker-build.yml"
 
 jobs:
   docker:

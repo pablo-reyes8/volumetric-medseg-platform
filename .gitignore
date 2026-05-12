@@ -214,6 +214,14 @@ artifacts/*
 !artifacts/.gitkeep
 !artifacts/registry/
 !artifacts/registry/.gitkeep
+!artifacts/registry/candidates/
+!artifacts/registry/candidates/.gitkeep
+!artifacts/registry/champions/
+!artifacts/registry/champions/.gitkeep
+!artifacts/registry/rejected/
+!artifacts/registry/rejected/.gitkeep
+!artifacts/registry/history/
+!artifacts/registry/history/.gitkeep
 !artifacts/models/
 !artifacts/models/.gitkeep
 !artifacts/reports/
@@ -222,6 +230,12 @@ artifacts/*
 !artifacts/predictions/.gitkeep
 !artifacts/feedback/
 !artifacts/feedback/.gitkeep
+!artifacts/airflow/
+!artifacts/airflow/.gitkeep
+!artifacts/airflow/dag_runs/
+!artifacts/airflow/dag_runs/.gitkeep
+!artifacts/airflow/task_outputs/
+!artifacts/airflow/task_outputs/.gitkeep
 mlruns/
 
 # Local Airflow runtime state.
@@ -229,3 +243,5 @@ airflow/logs/*
 !airflow/logs/.gitkeep
 airflow/plugins/*
 !airflow/plugins/.gitkeep
+!airflow/plugins/medseg_airflow/
+!airflow/plugins/medseg_airflow/*.py

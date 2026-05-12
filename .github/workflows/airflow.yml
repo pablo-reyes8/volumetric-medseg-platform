@@ -1,0 +1,41 @@
+name: Airflow
+
+on:
+  pull_request:
+    paths:
+      - "airflow/**"
+      - "configs/**"
+      - "schemas/**"
+      - "scripts/**"
+      - "src/mlops/**"
+      - "tests/airflow/**"
+      - "requirements/**"
+      - ".github/workflows/airflow.yml"
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "airflow/**"
+      - "configs/**"
+      - "schemas/**"
+      - "scripts/**"
+      - "src/mlops/**"
+      - "tests/airflow/**"
+      - "requirements/**"
+      - ".github/workflows/airflow.yml"
+
+jobs:
+  airflow-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install lightweight dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/base.txt PyYAML pytest
+      - name: Validate Airflow DAG contracts and smoke lifecycle
+        run: python scripts/run_tests.py tests/airflow
