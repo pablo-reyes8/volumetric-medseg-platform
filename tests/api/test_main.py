@@ -1,6 +1,8 @@
 from pathlib import Path
+from inspect import signature
 
 import numpy as np
+import httpx
 from fastapi.testclient import TestClient
 
 from src.api.inference_service import PredictionResult
@@ -8,6 +10,15 @@ from src.api.main import create_app, get_service, get_settings
 from src.api.settings import Settings
 
 from tests.utils import nifti_bytes
+
+
+if "app" not in signature(httpx.Client.__init__).parameters:
+    _original_httpx_client_init = httpx.Client.__init__
+
+    def _compatible_httpx_client_init(self, *args, app=None, **kwargs):
+        return _original_httpx_client_init(self, *args, **kwargs)
+
+    httpx.Client.__init__ = _compatible_httpx_client_init
 
 
 class DummyService:
@@ -78,6 +89,7 @@ def test_api_endpoints_return_metadata_and_downloads(tmp_path: Path):
         assert config_response.status_code == 200
         assert config_response.json()["pad_multiple"] == settings.pad_multiple
         assert config_response.json()["monitoring_window_seconds"] == settings.monitoring_window_seconds
+        assert config_response.json()["prometheus_enabled"] is True
 
         policy_response = client.get("/api/v1/monitoring/policy")
         assert policy_response.status_code == 200
@@ -99,6 +111,10 @@ def test_api_endpoints_return_metadata_and_downloads(tmp_path: Path):
         runtime_response = client.get("/api/v1/monitoring/runtime")
         assert runtime_response.status_code == 200
         assert runtime_response.json()["totals"]["requests"] >= 1
+
+        metrics_response = client.get("/metrics")
+        assert metrics_response.status_code == 200
+        assert "medseg_requests_total" in metrics_response.text
 
         legacy_response = client.post("/v1/predict?return_binary=true", files=upload)
         assert legacy_response.status_code == 200

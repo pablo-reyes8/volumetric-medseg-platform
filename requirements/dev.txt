@@ -1,5 +1,6 @@
 -r api.txt
 -r app.txt
+-r mlops.txt
 
 httpx>=0.26,<0.28
 mlflow>=2.12,<3.0

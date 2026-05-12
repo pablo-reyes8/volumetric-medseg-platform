@@ -12,8 +12,10 @@ import streamlit as st
 
 from src.api.inference_service import PredictionResult, SegmentationService
 from src.api.settings import Settings
+from src.mlops.feedback_logging import append_feedback_record, build_feedback_record
 
 DEFAULT_API_URL = os.getenv("UNET3D_API_URL", "http://localhost:8000")
+DEFAULT_FEEDBACK_PATH = Path(os.getenv("UNET3D_REVIEW_FEEDBACK_PATH", "artifacts/feedback/review_feedback.jsonl"))
 API_TIMEOUT_SECONDS = 300
 
 
@@ -175,6 +177,28 @@ def _histogram_rows(summary: Dict[str, Any]) -> list[Dict[str, Any]]:
     return rows
 
 
+def _render_feedback_form(summary: Dict[str, Any], key_prefix: str) -> None:
+    with st.expander("Review feedback", expanded=False):
+        accepted = st.checkbox("Accepted", value=True, key=f"{key_prefix}_accepted")
+        quality_score = st.slider("Quality score", min_value=1, max_value=5, value=4, key=f"{key_prefix}_quality")
+        requires_reannotation = st.checkbox("Requires reannotation", value=False, key=f"{key_prefix}_reannotation")
+        notes = st.text_area("Notes", value="", key=f"{key_prefix}_notes")
+        if st.button("Save feedback", key=f"{key_prefix}_save_feedback"):
+            try:
+                record = build_feedback_record(
+                    request_id=summary["request_id"],
+                    model_version=str(summary.get("model_version", "local")),
+                    accepted=accepted,
+                    quality_score=quality_score,
+                    notes=notes,
+                    requires_reannotation=requires_reannotation,
+                )
+                append_feedback_record(DEFAULT_FEEDBACK_PATH, record)
+                st.success(f"Feedback saved to {DEFAULT_FEEDBACK_PATH}")
+            except Exception as exc:  # pylint: disable=broad-except
+                st.error(f"Could not save feedback: {exc}")
+
+
 @st.cache_resource(show_spinner=False)
 def _get_local_service(model_path: str) -> SegmentationService:
     settings = Settings(model_path=Path(model_path))
@@ -287,6 +311,8 @@ def _render_result(bundle: InferenceBundle, key_prefix: str) -> None:
     with histogram_col:
         st.subheader("Class histogram")
         st.table(_histogram_rows(summary))
+
+    _render_feedback_form(summary, key_prefix=key_prefix)
 
 
 def _handle_api_tab() -> None:

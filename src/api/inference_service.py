@@ -6,11 +6,9 @@ from typing import Dict, List, Optional, Tuple
 
 import nibabel as nib
 import numpy as np
-import torch
 
 from src.api.settings import Settings
 from data.preprocessing import minmax_normalize
-from src.model.unet3d import UNet3D
 
 
 @dataclass
@@ -45,20 +43,24 @@ class SegmentationService:
 
     def __init__(self, settings: Settings):
         self.settings = settings
-        self.device: torch.device = torch.device("cpu")
-        self._model: Optional[torch.nn.Module] = None
+        self.device = "cpu"
+        self._model = None
 
     @property
     def model_ready(self) -> bool:
         return self._model is not None
 
-    def reload_model(self) -> torch.nn.Module:
+    def reload_model(self):
         return self.load_model(force_reload=True)
 
-    def load_model(self, force_reload: bool = False) -> torch.nn.Module:
+    def load_model(self, force_reload: bool = False):
         """Carga el checkpoint en memoria si aún no está disponible."""
         if self._model is not None and not force_reload:
             return self._model
+
+        import torch
+
+        from src.model.unet3d import UNet3D
 
         device_str = self._pick_device()
         self.device = torch.device(device_str)
@@ -93,6 +95,8 @@ class SegmentationService:
         Ejecuta inferencia sobre un archivo NIfTI y devuelve la máscara predicha y metadatos.
         """
         model = self.load_model()
+        import torch
+
         threshold = float(threshold) if threshold is not None else float(self.settings.default_threshold)
 
         total_start = time.perf_counter()
@@ -178,6 +182,8 @@ class SegmentationService:
         return data, canonical.affine, voxel_spacing, orientation
 
     def _pick_device(self) -> str:
+        import torch
+
         if self.settings.device == "auto":
             return "cuda" if torch.cuda.is_available() else "cpu"
         if self.settings.device == "cuda" and not torch.cuda.is_available():

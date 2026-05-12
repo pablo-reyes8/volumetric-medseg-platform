@@ -11,7 +11,7 @@ from uuid import uuid4
 
 from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from src.api.inference_service import PredictionResult, SegmentationService
 from src.api.model_card import extract_maintainers, load_model_card
@@ -33,6 +33,16 @@ from src.api.schemas import (
     ServiceInfoResponse,
 )
 from src.api.settings import Settings
+from src.mlops.logging_config import configure_json_logging, log_request
+from src.mlops.prediction_logging import append_prediction_record, build_prediction_record
+from src.mlops.prometheus_exporter import (
+    metrics_content_type,
+    record_http_request,
+    record_memory_usage,
+    record_model_loaded,
+    record_prediction,
+    render_metrics,
+)
 from src.mlops.retraining import evaluate_retraining_recommendations, load_operating_policy, summarize_monitored_signals
 from src.mlops.runtime_monitoring import RuntimeMonitor
 
@@ -124,7 +134,7 @@ async def _run_prediction(file: UploadFile, threshold: Optional[float], service:
 
 def create_app(app_settings: Optional[Settings] = None) -> FastAPI:
     settings = app_settings or Settings()
-    logging.basicConfig(level=getattr(logging, settings.log_level))
+    configure_json_logging(settings.log_level)
     service = SegmentationService(settings=settings)
     runtime_monitor = RuntimeMonitor(settings=settings)
     operating_policy = load_operating_policy(settings.operating_policy_path)
@@ -138,6 +148,7 @@ def create_app(app_settings: Optional[Settings] = None) -> FastAPI:
         if settings.preload_model:
             try:
                 model = service.load_model()
+                record_model_loaded(settings.app_version)
                 logger.info("Modelo cargado en %s", service.device)
                 logger.info("Pesos: %s", settings.model_path)
                 logger.info("Salidas: %s clases", getattr(model, "out_conv").out_channels)
@@ -184,6 +195,15 @@ def create_app(app_settings: Optional[Settings] = None) -> FastAPI:
             status_code=response.status_code,
             latency_ms=latency_ms,
         )
+        record_http_request(request.method, request.url.path, response.status_code, latency_ms)
+        log_request(
+            logger,
+            request_id=request.state.request_id,
+            endpoint=request.url.path,
+            latency_ms=latency_ms,
+            status_code=response.status_code,
+            model_version=settings.app_version,
+        )
         response.headers["X-Request-ID"] = request.state.request_id
         response.headers["X-Processed-At"] = started_at.isoformat()
         return response
@@ -221,6 +241,15 @@ def create_app(app_settings: Optional[Settings] = None) -> FastAPI:
             health_url="/health/ready",
             prediction_url="/api/v1/predictions",
         )
+
+    @app.get("/metrics", tags=["monitoring"], summary="Prometheus metrics")
+    async def metrics() -> Response:
+        if not settings.prometheus_enabled:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prometheus metrics are disabled.")
+        snapshot = runtime_monitor.snapshot()
+        memory_mb = float(snapshot.get("resources", {}).get("memory_rss_mb", 0.0))
+        record_memory_usage(int(memory_mb * 1024 * 1024))
+        return Response(content=render_metrics(), media_type=metrics_content_type())
 
     def _health_payload(current_service: SegmentationService, ready: bool, detail: Optional[str] = None) -> HealthResponse:
         return HealthResponse(
@@ -313,6 +342,13 @@ def create_app(app_settings: Optional[Settings] = None) -> FastAPI:
             cpu_hourly_cost_usd=current_settings.cpu_hourly_cost_usd,
             gpu_hourly_cost_usd=current_settings.gpu_hourly_cost_usd,
             memory_gb_hourly_cost_usd=current_settings.memory_gb_hourly_cost_usd,
+            environment=current_settings.environment,
+            artifact_root=str(current_settings.artifact_root),
+            data_root=str(current_settings.data_root),
+            mlflow_tracking_uri=current_settings.mlflow_tracking_uri,
+            prometheus_enabled=current_settings.prometheus_enabled,
+            prediction_log_path=str(current_settings.prediction_log_path),
+            review_feedback_path=str(current_settings.review_feedback_path),
         )
 
     @app.get(
@@ -392,6 +428,18 @@ def create_app(app_settings: Optional[Settings] = None) -> FastAPI:
         current_settings: Settings = Depends(get_settings),
     ) -> PredictionResponse:
         result = await _run_prediction(file, threshold, current_service, current_settings)
+        record_prediction(result.input_shape, result.inference_ms)
+        append_prediction_record(
+            current_settings.prediction_log_path,
+            build_prediction_record(
+                request_id=_request_id(request),
+                model_version=current_settings.app_version,
+                input_shape=result.input_shape,
+                intensity_range=result.intensity_range,
+                class_ratios=result.class_ratios,
+                latency_ms=result.total_runtime_ms,
+            ),
+        )
         return _build_prediction_response(_request_id(request), result, current_settings)
 
     @app.post(
@@ -415,6 +463,18 @@ def create_app(app_settings: Optional[Settings] = None) -> FastAPI:
         current_settings: Settings = Depends(get_settings),
     ) -> StreamingResponse:
         result = await _run_prediction(file, threshold, current_service, current_settings)
+        record_prediction(result.input_shape, result.inference_ms)
+        append_prediction_record(
+            current_settings.prediction_log_path,
+            build_prediction_record(
+                request_id=_request_id(request),
+                model_version=current_settings.app_version,
+                input_shape=result.input_shape,
+                intensity_range=result.intensity_range,
+                class_ratios=result.class_ratios,
+                latency_ms=result.total_runtime_ms,
+            ),
+        )
         headers = {
             "Content-Disposition": f'attachment; filename="{result.output_filename}"',
             "X-Request-ID": _request_id(request),
@@ -452,6 +512,18 @@ def create_app(app_settings: Optional[Settings] = None) -> FastAPI:
         current_settings: Settings = Depends(get_settings),
     ):
         result = await _run_prediction(file, threshold, current_service, current_settings)
+        record_prediction(result.input_shape, result.inference_ms)
+        append_prediction_record(
+            current_settings.prediction_log_path,
+            build_prediction_record(
+                request_id=_request_id(request),
+                model_version=current_settings.app_version,
+                input_shape=result.input_shape,
+                intensity_range=result.intensity_range,
+                class_ratios=result.class_ratios,
+                latency_ms=result.total_runtime_ms,
+            ),
+        )
         if return_binary:
             headers = {
                 "Content-Disposition": f'attachment; filename="{result.output_filename}"',

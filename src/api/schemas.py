@@ -73,6 +73,13 @@ class RuntimeConfigResponse(BaseModel):
     cpu_hourly_cost_usd: float
     gpu_hourly_cost_usd: float
     memory_gb_hourly_cost_usd: float
+    environment: str
+    artifact_root: str
+    data_root: str
+    mlflow_tracking_uri: str
+    prometheus_enabled: bool
+    prediction_log_path: str
+    review_feedback_path: str
 
 
 class RuntimeBreakdown(BaseModel):

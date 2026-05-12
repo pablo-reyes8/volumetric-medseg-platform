@@ -22,6 +22,9 @@ retraining:
   drift_psi_threshold: 0.2
   drift_ks_threshold: 0.12
   warmup_min_requests: 200
+  review_acceptance_rate_min: 0.8
+  reannotation_rate_max: 0.2
+  mean_quality_score_min: 3.5
 rollback:
   trigger_error_rate: 0.05
   trigger_latency_p95_ms: 2500

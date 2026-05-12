@@ -1,7 +1,12 @@
 from pathlib import Path
 
 import numpy as np
-import torch
+import pytest
+
+try:
+    import torch
+except Exception as exc:  # pragma: no cover - environment-specific
+    pytest.skip(f"PyTorch is not importable in this environment: {exc}", allow_module_level=True)
 
 from src.api.inference_service import SegmentationService
 from src.api.settings import Settings

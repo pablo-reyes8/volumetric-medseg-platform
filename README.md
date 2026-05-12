@@ -13,11 +13,12 @@ Production-minded 3D medical image segmentation built around a PyTorch UNet3D. T
 
 ## Quick Navigation
 - [Visual Results](#visual-results)
+- [Repository Structure](#repository-structure)
 - [Project Snapshot](#project-snapshot)
 - [Quickstart](#quickstart)
+- [Local-first MLOps Platform](#local-first-mlops-platform)
 - [API Surface](#api-surface)
 - [Data and MLOps](#data-and-mlops)
-- [Repository Structure](#repository-structure)
 
 ## Project Snapshot
 - **Model**: `UNet3D` for volumetric medical segmentation.
@@ -27,6 +28,7 @@ Production-minded 3D medical image segmentation built around a PyTorch UNet3D. T
 - **Review interface**: `Streamlit` for slice inspection, overlays, histograms and inference comparison.
 - **Ops baseline**: test suite, CLI scripts, split Docker images, environment-based configuration and runtime monitoring.
 - **Data foundation**: source metadata, contracts, manifests, registry and quality checks for the canonical dataset.
+- **Local platform layer**: Makefile commands, `.env.example`, MLflow, local model registry, promotion/rollback CLIs, Prometheus metrics, Grafana dashboard and Airflow DAG skeletons.
 
 ## Why This Repo Works As A Portfolio Project
 - It solves a real 3D medical imaging task instead of a 2D toy demo.
@@ -72,38 +74,74 @@ Production-minded 3D medical image segmentation built around a PyTorch UNet3D. T
   </tr>
 </table>
 
+
+## Repository Structure
+```text
+├─ app/                     # Streamlit review console
+├─ airflow/                 # Local Airflow DAGs and runtime folders
+├─ artifacts/               # Local ignored model, registry, prediction and feedback artifacts
+├─ data/                    # Dataset layout, manifests, registry, ingestion and preprocessing
+├─ docker/                  # Dedicated Dockerfiles for API and Streamlit
+├─ experiments/             # Qualitative and quantitative results
+├─ monitoring/              # Prometheus scrape config and Grafana dashboard provisioning
+├─ requirements/            # Dependency profiles: base, api, app, dev
+├─ schemas/                 # MLOps JSON schemas for evaluation and review feedback
+├─ scripts/                 # CLI helpers for API, app, tests, Docker, data and drift
+├─ src/
+│  ├─ api/                  # FastAPI app, schemas, settings, inference service
+│  ├─ mlops/                # Tracking, registry, metrics, feedback, drift and retraining logic
+│  ├─ model/                # UNet3D architecture and blocks
+│  ├─ model_inference.py/   # Analysis and qualitative utilities
+│  └─ training/             # Training loop and metrics
+├─ tests/                   # API, data and MLOps smoke tests
+├─ docker-compose.yml       # Multi-service local stack
+├─ Makefile                 # Local reproducibility and platform commands
+├─ model.yaml               # Model card and serving metadata
+├─ requirements.txt         # Full development dependencies
+└─ Dockerfile               # Backward-compatible API image build
+```
+
+
 ## Quickstart
 ### 1. Create the local environment
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r requirements/dev.txt
+cp .env.example .env
 ```
 
-### 2. Run the API
+Or use the Makefile:
+```bash
+make setup
+cp .env.example .env
+make check-env
+```
+
+### 2. Run smoke tests
+The smoke tests do not require CUDA or trained UNet3D weights. API tests use dummy services where needed.
+```bash
+make test
+```
+
+### 3. Run the API
 ```bash
 python scripts/run_api.py \
   --reload \
   --model-path /absolute/path/to/unet3d_best.pt
 ```
 
-### 3. Run the Streamlit review app
+### 4. Run the Streamlit review app
 ```bash
 python scripts/run_app.py \
   --api-url http://localhost:8000 \
   --model-path /absolute/path/to/unet3d_best.pt
 ```
 
-### 4. Run the tests
-```bash
-python scripts/run_tests.py tests/data tests/mlops tests/api --verbose
-```
-
 ### 5. Run the local Docker stack
 ```bash
-python scripts/run_docker.py build
-python scripts/run_docker.py up --detach
+make docker-up
 ```
 
 This starts:
@@ -112,8 +150,56 @@ This starts:
 
 Stop the stack with:
 ```bash
-python scripts/run_docker.py down
+make docker-down
 ```
+
+### 6. Run local platform services
+```bash
+make mlflow-up
+make airflow-up
+make prometheus-up
+```
+
+Service URLs:
+- FastAPI: `http://localhost:8000`
+- Streamlit: `http://localhost:8501`
+- MLflow: `http://localhost:5000`
+- Airflow: `http://localhost:8080`
+- Prometheus: `http://localhost:9090`
+- Grafana: `http://localhost:3000`
+
+## Local-first MLOps Platform
+This repository implements a local-first MLOps workflow for 3D medical image segmentation. Beyond model training, it includes dataset contracts, dataset versioning, MLflow experiment tracking, local model registry semantics, Dockerized inference, Streamlit review, Prometheus/Grafana observability, Airflow orchestration, drift detection, and policy-driven retraining/rollback decisions.
+
+The project intentionally avoids managed cloud services in its current version to make the complete lifecycle reproducible on a local workstation.
+
+```text
+DataOps -> Training -> MLflow -> Evaluation -> Registry -> FastAPI -> Monitoring -> Drift -> Retraining Policy -> Airflow
+```
+
+### Local platform commands
+```bash
+make check-env        # verify Python, dependencies and local directories
+make mlflow-up        # start local MLflow at localhost:5000
+make airflow-up       # start local Airflow at localhost:8080
+make prometheus-up    # start Prometheus and Grafana
+make smoke-docker     # probe local stack endpoints
+```
+
+### Local registry and release governance
+The local model registry uses filesystem-backed metadata under `artifacts/registry/` and model packages under `artifacts/models/`.
+
+Promotion and rollback are explicit commands:
+```bash
+python scripts/promote_model.py \
+  --candidate-version v0.2.0 \
+  --require-eval-pass \
+  --write-deployment-record
+
+python scripts/rollback_model.py --to previous
+```
+
+Each model package is expected to include `model_package.yaml` with dataset lineage, config hashes, MLflow run ID, checkpoint path, evaluation report path and deployment status.
 
 ## End-to-End Workflow
 ```text
@@ -184,6 +270,16 @@ docker build -f docker/Dockerfile.api -t unet3d-medseg-api .
 docker build -f docker/Dockerfile.streamlit -t unet3d-medseg-streamlit .
 ```
 
+Compose profiles keep local services optional:
+```bash
+docker compose --profile api up
+docker compose --profile app up
+docker compose --profile mlflow up
+docker compose --profile airflow up
+docker compose --profile monitoring up
+docker compose --profile all up
+```
+
 ## Configuration
 Environment variables use the `UNET3D_` prefix. The most relevant ones are:
 - `UNET3D_MODEL_PATH`
@@ -193,6 +289,12 @@ Environment variables use the `UNET3D_` prefix. The most relevant ones are:
 - `UNET3D_CLIP_PERCENTILES`
 - `UNET3D_ALLOW_ORIGINS`
 - `UNET3D_PRELOAD_MODEL`
+- `UNET3D_ARTIFACT_ROOT`
+- `UNET3D_DATA_ROOT`
+- `UNET3D_MLFLOW_TRACKING_URI`
+- `UNET3D_PROMETHEUS_ENABLED`
+- `UNET3D_PREDICTION_LOG_PATH`
+- `UNET3D_REVIEW_FEEDBACK_PATH`
 
 See `src/api/settings.py` for the full runtime configuration contract.
 
@@ -273,29 +375,10 @@ Useful monitoring endpoints:
 - `GET /api/v1/monitoring/runtime`
 - `GET /api/v1/monitoring/policy`
 - `GET /api/v1/monitoring/retraining-assessment`
+- `GET /metrics`
 
 For the operational summary, see `docs/mlops_playbook.md`.
 
-## Repository Structure
-```text
-├─ app/                     # Streamlit review console
-├─ data/                    # Dataset layout, manifests, registry, ingestion and preprocessing
-├─ docker/                  # Dedicated Dockerfiles for API and Streamlit
-├─ experiments/             # Qualitative and quantitative results
-├─ requirements/            # Dependency profiles: base, api, app, dev
-├─ scripts/                 # CLI helpers for API, app, tests, Docker, data and drift
-├─ src/
-│  ├─ api/                  # FastAPI app, schemas, settings, inference service
-│  ├─ mlops/                # MLflow tracking and deployment drift evaluation
-│  ├─ model/                # UNet3D architecture and blocks
-│  ├─ model_inference.py/   # Analysis and qualitative utilities
-│  └─ training/             # Training loop and metrics
-├─ tests/                   # API, data and MLOps smoke tests
-├─ docker-compose.yml       # Multi-service local stack
-├─ model.yaml               # Model card and serving metadata
-├─ requirements.txt         # Full development dependencies
-└─ Dockerfile               # Backward-compatible API image build
-```
 
 ## Testing
 The `tests/` suite currently covers:

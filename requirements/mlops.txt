@@ -1,0 +1,5 @@
+-r base.txt
+
+mlflow>=2.12,<3.0
+prometheus-client>=0.20
+requests>=2.31

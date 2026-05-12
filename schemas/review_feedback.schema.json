@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MedSeg Review Feedback",
+  "type": "object",
+  "required": [
+    "timestamp",
+    "request_id",
+    "model_version",
+    "reviewer_id",
+    "accepted",
+    "quality_score",
+    "requires_reannotation"
+  ],
+  "properties": {
+    "timestamp": {
+      "type": "string"
+    },
+    "request_id": {
+      "type": "string"
+    },
+    "model_version": {
+      "type": "string"
+    },
+    "reviewer_id": {
+      "type": "string"
+    },
+    "accepted": {
+      "type": "boolean"
+    },
+    "quality_score": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5
+    },
+    "notes": {
+      "type": "string"
+    },
+    "requires_reannotation": {
+      "type": "boolean"
+    }
+  }
+}

@@ -1,6 +1,12 @@
 from pathlib import Path
 
 import numpy as np
+import pytest
+
+try:
+    import torch  # noqa: F401
+except Exception as exc:  # pragma: no cover - environment-specific
+    pytest.skip(f"PyTorch is not importable in this environment: {exc}", allow_module_level=True)
 
 from data.datasets import Hippocampus3DDataset, build_segmentation_dataloaders, split_volume_pairs
 from data.ingestion import pair_image_and_mask_files

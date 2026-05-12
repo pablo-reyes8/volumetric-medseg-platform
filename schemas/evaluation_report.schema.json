@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MedSeg Evaluation Report",
+  "type": "object",
+  "required": [
+    "model_version",
+    "run_id",
+    "dataset_manifest",
+    "evaluation_split",
+    "metrics",
+    "thresholds",
+    "decision"
+  ],
+  "properties": {
+    "model_version": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "dataset_manifest": {
+      "type": "string"
+    },
+    "evaluation_split": {
+      "type": "string"
+    },
+    "metrics": {
+      "type": "object",
+      "required": [
+        "dice_mean",
+        "dice_per_class",
+        "hausdorff_95",
+        "inference_latency_p95_ms"
+      ],
+      "properties": {
+        "dice_mean": {
+          "type": "number"
+        },
+        "dice_per_class": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "hausdorff_95": {
+          "type": "number"
+        },
+        "inference_latency_p95_ms": {
+          "type": "number"
+        },
+        "validation_loss": {
+          "type": "number"
+        }
+      }
+    },
+    "thresholds": {
+      "type": "object",
+      "required": [
+        "min_dice_mean",
+        "max_hausdorff_95",
+        "max_latency_p95_ms"
+      ],
+      "properties": {
+        "min_dice_mean": {
+          "type": "number"
+        },
+        "max_hausdorff_95": {
+          "type": "number"
+        },
+        "max_latency_p95_ms": {
+          "type": "number"
+        }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "required": [
+        "passed",
+        "reasons"
+      ],
+      "properties": {
+        "passed": {
+          "type": "boolean"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

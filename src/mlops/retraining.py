@@ -34,6 +34,7 @@ def evaluate_retraining_recommendations(
     validation_snapshot: Optional[Dict[str, object]] = None,
     days_since_last_train: Optional[int] = None,
     consecutive_incidents: int = 0,
+    feedback_snapshot: Optional[Dict[str, object]] = None,
 ) -> Dict[str, object]:
     active_policy = policy or load_operating_policy()
     monitoring = active_policy.get("monitoring", {})
@@ -61,6 +62,23 @@ def evaluate_retraining_recommendations(
             if absolute_drop > drop_threshold:
                 recommendations.append("kpi_drop_retrain")
                 reasons.append(f"{metric_name} dropped by {absolute_drop:.4f}")
+
+    if feedback_snapshot:
+        min_acceptance_rate = float(retraining.get("review_acceptance_rate_min", 0.8))
+        max_reannotation_rate = float(retraining.get("reannotation_rate_max", 0.2))
+        min_quality_score = float(retraining.get("mean_quality_score_min", 3.5))
+        acceptance_rate = float(feedback_snapshot.get("acceptance_rate", 1.0))
+        reannotation_rate = float(feedback_snapshot.get("reannotation_rate", 0.0))
+        mean_quality_score = float(feedback_snapshot.get("mean_quality_score", 5.0))
+        if acceptance_rate < min_acceptance_rate:
+            recommendations.append("feedback_retrain")
+            reasons.append(f"review acceptance rate {acceptance_rate:.4f} is below policy")
+        if reannotation_rate > max_reannotation_rate:
+            recommendations.append("feedback_retrain")
+            reasons.append(f"reannotation rate {reannotation_rate:.4f} exceeded policy")
+        if mean_quality_score < min_quality_score:
+            recommendations.append("feedback_retrain")
+            reasons.append(f"mean quality score {mean_quality_score:.2f} is below policy")
 
     if runtime_snapshot:
         error_rate = float(runtime_snapshot.get("totals", {}).get("error_rate", 0.0))

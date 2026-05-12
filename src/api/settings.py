@@ -20,6 +20,20 @@ class Settings(BaseSettings):
     contact_email: str = Field(default="ml-team@example.com", description="Correo de contacto para soporte.")
     license_name: str = Field(default="MIT", description="Licencia expuesta en OpenAPI.")
     log_level: str = Field(default="INFO", description="Nivel de logging para la API.")
+    environment: str = Field(default="local", description="Runtime environment label.")
+    artifact_root: Path = Field(default=Path("artifacts"), description="Local MLOps artifact root.")
+    data_root: Path = Field(default=Path("data"), description="Local dataset root.")
+    mlflow_tracking_uri: str = Field(default="http://localhost:5000", description="MLflow tracking URI.")
+    enable_runtime_monitoring: bool = Field(default=True, description="Enable in-process runtime monitoring.")
+    prometheus_enabled: bool = Field(default=True, description="Expose Prometheus metrics at /metrics.")
+    prediction_log_path: Path = Field(
+        default=Path("artifacts/predictions/prediction_log.jsonl"),
+        description="JSONL path for prediction metadata records.",
+    )
+    review_feedback_path: Path = Field(
+        default=Path("artifacts/feedback/review_feedback.jsonl"),
+        description="JSONL path for local review feedback records.",
+    )
     preload_model: bool = Field(
         default=True,
         description="Si es true, intenta cargar el checkpoint al arrancar el servicio.",

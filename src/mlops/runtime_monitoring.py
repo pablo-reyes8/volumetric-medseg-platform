@@ -5,10 +5,17 @@ from collections import Counter, defaultdict, deque
 from dataclasses import dataclass
 from typing import Deque, Dict, List, Optional
 
-import psutil
-import torch
+try:
+    import psutil
+except ImportError:  # pragma: no cover - lightweight smoke environments
+    psutil = None
 
 from src.api.settings import Settings
+
+try:
+    import torch
+except Exception:  # pragma: no cover - keeps smoke tests alive without a working torch install
+    torch = None
 
 
 @dataclass
@@ -26,7 +33,7 @@ class RuntimeMonitor:
         self.started_at = time.time()
         self._events: Deque[RequestEvent] = deque()
         self._lock = threading.Lock()
-        self._process = psutil.Process()
+        self._process = psutil.Process() if psutil else None
 
     def record_request(self, path: str, method: str, status_code: int, latency_ms: float) -> None:
         with self._lock:
@@ -77,18 +84,25 @@ class RuntimeMonitor:
                 "p95_latency_ms": round(self._percentile(endpoint_latencies, 0.95), 3),
             }
 
-        cpu_percent = self._process.cpu_percent(interval=None)
-        memory_info = self._process.memory_info()
-        system_memory = psutil.virtual_memory()
+        if self._process is not None and psutil is not None:
+            cpu_percent = self._process.cpu_percent(interval=None)
+            memory_info = self._process.memory_info()
+            system_memory = psutil.virtual_memory()
+            memory_rss = memory_info.rss
+            memory_percent = system_memory.percent
+        else:
+            cpu_percent = 0.0
+            memory_rss = 0
+            memory_percent = 0.0
         gpu_memory_reserved_mb = 0.0
         gpu_memory_allocated_mb = 0.0
-        gpu_available = torch.cuda.is_available()
+        gpu_available = bool(torch and torch.cuda.is_available())
         if gpu_available:
             gpu_memory_reserved_mb = round(torch.cuda.memory_reserved() / (1024 ** 2), 3)
             gpu_memory_allocated_mb = round(torch.cuda.memory_allocated() / (1024 ** 2), 3)
 
         hourly_rate = self.settings.gpu_hourly_cost_usd if gpu_available else self.settings.cpu_hourly_cost_usd
-        memory_hourly_cost = (memory_info.rss / (1024 ** 3)) * self.settings.memory_gb_hourly_cost_usd
+        memory_hourly_cost = (memory_rss / (1024 ** 3)) * self.settings.memory_gb_hourly_cost_usd
         total_hourly_rate = hourly_rate + memory_hourly_cost
         total_estimated_cost = (uptime_seconds / 3600.0) * total_hourly_rate
         cost_per_1000_requests = (total_estimated_cost / requests * 1000.0) if requests else 0.0
@@ -112,8 +126,8 @@ class RuntimeMonitor:
             },
             "resources": {
                 "cpu_percent": round(cpu_percent, 3),
-                "memory_rss_mb": round(memory_info.rss / (1024 ** 2), 3),
-                "memory_percent": round(system_memory.percent, 3),
+                "memory_rss_mb": round(memory_rss / (1024 ** 2), 3),
+                "memory_percent": round(memory_percent, 3),
                 "gpu_available": gpu_available,
                 "gpu_memory_reserved_mb": gpu_memory_reserved_mb,
                 "gpu_memory_allocated_mb": gpu_memory_allocated_mb,

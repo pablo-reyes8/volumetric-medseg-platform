@@ -205,3 +205,27 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Local project-specific configuration and workbench state
+project_config/
+
+# Local MLOps artifacts. Preserve directory placeholders only.
+artifacts/*
+!artifacts/.gitkeep
+!artifacts/registry/
+!artifacts/registry/.gitkeep
+!artifacts/models/
+!artifacts/models/.gitkeep
+!artifacts/reports/
+!artifacts/reports/.gitkeep
+!artifacts/predictions/
+!artifacts/predictions/.gitkeep
+!artifacts/feedback/
+!artifacts/feedback/.gitkeep
+mlruns/
+
+# Local Airflow runtime state.
+airflow/logs/*
+!airflow/logs/.gitkeep
+airflow/plugins/*
+!airflow/plugins/.gitkeep

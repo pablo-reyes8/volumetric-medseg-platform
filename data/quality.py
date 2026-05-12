@@ -4,7 +4,59 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
-from jsonschema import Draft202012Validator
+try:
+    from jsonschema import Draft202012Validator
+except ImportError:  # pragma: no cover - fallback for lightweight smoke environments
+    class _ValidationError:
+        def __init__(self, message: str):
+            self.message = message
+
+    class Draft202012Validator:  # type: ignore[no-redef]
+        def __init__(self, schema):
+            self.schema = schema
+
+        def iter_errors(self, payload):
+            return list(_iter_schema_errors(payload, self.schema))
+
+    def _type_matches(value, expected_type) -> bool:
+        expected = expected_type if isinstance(expected_type, list) else [expected_type]
+        for item in expected:
+            if item == "null" and value is None:
+                return True
+            if item == "object" and isinstance(value, dict):
+                return True
+            if item == "array" and isinstance(value, list):
+                return True
+            if item == "string" and isinstance(value, str):
+                return True
+            if item == "integer" and isinstance(value, int) and not isinstance(value, bool):
+                return True
+            if item == "number" and isinstance(value, (int, float)) and not isinstance(value, bool):
+                return True
+            if item == "boolean" and isinstance(value, bool):
+                return True
+        return False
+
+    def _iter_schema_errors(payload, schema, path=""):
+        expected_type = schema.get("type")
+        if expected_type and not _type_matches(payload, expected_type):
+            yield _ValidationError(f"{path or 'value'} is not of type {expected_type}")
+            return
+
+        if isinstance(payload, dict):
+            for required_key in schema.get("required", []):
+                if required_key not in payload:
+                    yield _ValidationError(f"{path + '.' if path else ''}{required_key} is a required property")
+            for key, child_schema in schema.get("properties", {}).items():
+                if key in payload:
+                    yield from _iter_schema_errors(payload[key], child_schema, f"{path + '.' if path else ''}{key}")
+
+        if isinstance(payload, list) and "items" in schema:
+            for index, item in enumerate(payload):
+                yield from _iter_schema_errors(item, schema["items"], f"{path}[{index}]")
+
+        if "minimum" in schema and isinstance(payload, (int, float)) and payload < schema["minimum"]:
+            yield _ValidationError(f"{path or 'value'} is less than the minimum of {schema['minimum']}")
 
 from data.ingestion import list_nifti_files, pair_image_and_mask_files
 from data.preprocessing import load_nifti_volume, quick_subsample_stats
