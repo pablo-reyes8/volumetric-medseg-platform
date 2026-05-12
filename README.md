@@ -120,6 +120,7 @@ make check-env
 
 ### 2. Run smoke tests
 The smoke tests do not require CUDA or trained UNet3D weights. API tests use dummy services where needed.
+Airflow wrapper tests execute the CLI scripts with temporary artifacts and use a tiny NumPy MLP smoke trainer to validate the train/evaluate/package/promote path on CPU.
 ```bash
 make test
 ```
@@ -242,6 +243,8 @@ CPU-safe local demo:
 ```bash
 make mlops-demo
 ```
+
+Airflow validation coverage includes DAG import tests plus output-producing CLI smoke tests for dataset validation, data quality, dataset registration, training, evaluation gates, candidate packaging, registry promotion/rollback/rejection, runtime metrics, prediction summaries, review feedback, drift candidate generation and retraining policy assessment. The smoke trainer is intentionally CPU-only; full UNet3D training remains a GPU/runtime workload, not a default CI check.
 
 ## End-to-End Workflow
 ```text

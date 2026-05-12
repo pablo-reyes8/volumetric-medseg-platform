@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 
+from mlops_cli_utils import PROJECT_ROOT  # noqa: F401 - ensures repo root is importable
 from src.mlops.model_registry import LocalModelRegistry
 
 
