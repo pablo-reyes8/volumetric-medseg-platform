@@ -1,4 +1,4 @@
-# UNet3D Segmentation Suite
+# UNet3D Suite For Medical Segmentation
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -40,10 +40,8 @@ Production-minded 3D medical image segmentation built around a PyTorch UNet3D. T
 
 > Start with the outputs. The section below is intentionally near the top because the visual evidence is one of the strongest parts of the project.
 
-## Visual Results
 
-
-<h2 align="center">Visual Results</h2>
+<h2 align="center"> Some Visual Results</h2>
 
 <table align="center">
   <!-- Top row: smaller, context metrics -->
