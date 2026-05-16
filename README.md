@@ -439,5 +439,3 @@ This gives the repository a solid engineering baseline before adding CI/CD, mode
 ## License
 MIT License. You are free to use, modify, and distribute with attribution and without warranty.
 
-## Support
-For issues or improvements, open a ticket or reach the maintainers listed in `model.yaml`.
